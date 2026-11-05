@@ -6,10 +6,12 @@ export default function Scanner({
   onScan,
   onClose,
   continuous = false,
+  actionLabel = "Use entered barcode",
 }: {
   onScan: (code: string) => void;
   onClose: () => void;
   continuous?: boolean;
+  actionLabel?: string;
 }) {
   const video = useRef<HTMLVideoElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -133,7 +135,7 @@ export default function Scanner({
             }
           }}
         >
-          Look up product
+          {actionLabel}
         </button>
       </div>
     </dialog>

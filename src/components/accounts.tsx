@@ -67,7 +67,7 @@ export default function Accounts({ admin }: { admin: boolean }) {
                         className="secondary"
                         onClick={() => setSelected(u)}
                       >
-                        Edit / reset password
+                        Edit account or set new password
                       </button>
                     </td>
                   </tr>
@@ -134,10 +134,10 @@ export default function Accounts({ admin }: { admin: boolean }) {
                 >
                   <option value="ADMIN">Admin — full access</option>
                   <option value="BRANCH_MANAGER">
-                    Branch manager — assigned stock
+                    Branch manager — branch stock
                   </option>
                   <option value="MANUFACTURER">
-                    Manufacturer — production and dispatch
+                    Manufacturer — production and deliveries
                   </option>
                 </select>
               </label>
@@ -168,7 +168,7 @@ export default function Accounts({ admin }: { admin: boolean }) {
                 {busy
                   ? "Saving…"
                   : selected
-                    ? "Confirm account update"
+                    ? "Save changes (user will be signed out)"
                     : "Create account"}
               </button>
               {selected && (
@@ -177,7 +177,7 @@ export default function Accounts({ admin }: { admin: boolean }) {
                   className="secondary"
                   onClick={() => setSelected(null)}
                 >
-                  Cancel edit
+                  Cancel account edit
                 </button>
               )}
             </div>
@@ -235,7 +235,7 @@ export default function Accounts({ admin }: { admin: boolean }) {
               />
             </label>
           </div>
-          <button disabled={busy}>Confirm password change</button>
+          <button disabled={busy}>Change password and sign out</button>
         </form>
       </section>
     </>

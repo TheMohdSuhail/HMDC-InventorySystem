@@ -172,7 +172,7 @@ export default function BulkProducts({
           className="icon-button"
           disabled={busy}
           onClick={onClose}
-          aria-label="Close bulk entry"
+          aria-label="Close new product entry"
         >
           <X size={18} />
         </button>
@@ -182,13 +182,13 @@ export default function BulkProducts({
           className={mode === "import" ? "" : "secondary"}
           onClick={() => setMode("import")}
         >
-          Excel import
+          Import from Excel
         </button>
         <button
           className={mode === "scan" ? "" : "secondary"}
           onClick={() => setMode("scan")}
         >
-          Continuous scan
+          Add by barcode
         </button>
       </div>
       {error && (
@@ -206,13 +206,13 @@ export default function BulkProducts({
           <div className="actions" style={{ marginBottom: 16 }}>
             <a className="export-link" href="/api/products/bulk">
               <FileDown size={15} />
-              Download Excel template
+              Download product Excel template
             </a>
           </div>
           <label>
-            Upload product file
+            Choose Excel file to preview
             <input
-              aria-label="Upload product file"
+              aria-label="Choose Excel file to preview"
               type="file"
               accept=".xlsx"
               disabled={busy}
@@ -262,7 +262,7 @@ export default function BulkProducts({
               onClick={() => addBarcode(barcode)}
             >
               <Plus size={16} />
-              Add scan
+              Add new product by barcode
             </button>
             <button
               className="secondary"
@@ -270,7 +270,7 @@ export default function BulkProducts({
               onClick={() => setCamera(true)}
             >
               <ScanLine size={16} />
-              Camera scan
+              Scan new products with camera
             </button>
           </div>
           <p className="muted small">
@@ -345,7 +345,7 @@ export default function BulkProducts({
                       <button
                         className="icon-button"
                         disabled={busy}
-                        aria-label={`Remove row ${i + 1}`}
+                        aria-label={`Remove new product ${i + 1} from list`}
                         onClick={() => {
                           setRows((current) =>
                             current.filter((_, n) => n !== i),
@@ -386,14 +386,14 @@ export default function BulkProducts({
       )}
       <div className="form-footer">
         <button className="secondary" onClick={onClose} disabled={busy}>
-          Cancel
+          Cancel new product entry
         </button>
         <button
           className="secondary"
           onClick={() => void previewRows()}
           disabled={busy || !rows.length}
         >
-          {busy ? "Processing…" : "Validate preview"}
+          {busy ? "Checking entries…" : "Check product entries"}
         </button>
         <button
           disabled={
@@ -420,12 +420,13 @@ export default function BulkProducts({
             }
           }}
         >
-          Confirm import
+          Create products and save opening stock
         </button>
       </div>
       {camera && (
         <Scanner
           continuous
+          actionLabel="Add new product by barcode"
           onScan={addBarcode}
           onClose={() => {
             setCamera(false);

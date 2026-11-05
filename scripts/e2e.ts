@@ -70,7 +70,7 @@ async function downloadExcel(path: string) {
 async function logout() {
   await page
     .locator(".topbar")
-    .getByRole("button", { name: "Logout", exact: true })
+    .getByRole("button", { name: "Log out", exact: true })
     .click();
   await page.waitForURL("**/login");
   assert.equal((await page.request.get(base + "/api/data")).status(), 401);
@@ -88,8 +88,8 @@ async function batch(name: string, code: string, qty: string, source?: string) {
 }
 async function save() {
   const d = page.getByRole("dialog");
-  await d.getByRole("button", { name: "Review batch", exact: true }).click();
-  await d.getByRole("button", { name: "Confirm batch", exact: true }).click();
+  await d.getByRole("button", { name: "Review entries", exact: true }).click();
+  await d.getByRole("button", { name: /^(Confirm stock addition|Confirm stock transfer to branch|Save sale|Save customer return|Save finished stock|Confirm stock sent to warehouse|Confirm receipt from manufacturer)$/, exact: true }).click();
   await d.waitFor({ state: "hidden" });
 }
 try {
@@ -105,7 +105,7 @@ try {
     "Inventory",
     "Branches",
     "Production",
-    "Operations",
+    "Stock activity",
     "Purchases",
     "Suppliers",
     "Reports",
@@ -115,14 +115,14 @@ try {
     await page.getByRole("heading", { name, exact: true }).first().waitFor();
   }
   await nav().getByRole("button", { name: "Inventory", exact: true }).click();
-  await page.getByRole("button", { name: "Add product", exact: true }).click();
+  await page.getByRole("button", { name: "Enter new product details", exact: true }).click();
   let d = page.getByRole("dialog");
   const name = `Quantity browser ${suffix}`,
     code = `00Q${suffix}`;
   await d.getByLabel("Product name", { exact: true }).fill(name);
   await d.getByLabel("Product barcode").fill(code);
   await d.getByLabel("Expiry date", { exact: true }).fill("2027-12-31");
-  await d.getByRole("button", { name: "Save product", exact: true }).click();
+  await d.getByRole("button", { name: "Create product", exact: true }).click();
   await d.waitFor({ state: "hidden" });
   let data = await (await page.request.get(base + "/api/data")).json();
   const product = data.products.find((p: { name: string }) => p.name === name);
@@ -132,10 +132,10 @@ try {
   await downloadExcel("/api/export?type=products");
   await downloadExcel("/api/export?type=operations");
   await downloadExcel("/api/reports?format=xlsx");
-  await batch("Receive stock", code, "10");
+  await batch("Add stock to warehouse", code, "10");
   await save();
   await nav().getByRole("button", { name: "Branches", exact: true }).click();
-  await page.getByRole("button", { name: "Assign stock in bulk" }).click();
+  await page.getByRole("button", { name: "Send stock to branch" }).click();
   d = page.getByRole("dialog");
   await d.getByLabel("Inventory location").selectOption(branch.id);
   await d.getByLabel("Reason / notes").fill("Assign to test branch");
@@ -144,7 +144,7 @@ try {
   await d.getByLabel("Quantity row 1").fill("4");
   await save();
   await nav().getByRole("button", { name: "Inventory", exact: true }).click();
-  await page.getByRole("button", { name: "Bulk import Excel" }).click();
+  await page.getByRole("button", { name: "Import new products from Excel" }).click();
   d = page.getByRole("dialog");
   const template = await page.request.get(base + "/api/products/bulk");
   assert.ok(template.headers()["content-type"].includes("spreadsheetml"));
@@ -165,7 +165,7 @@ try {
       ]),
     ),
   });
-  await d.getByRole("button", { name: /Confirm import/ }).click();
+  await d.getByRole("button", { name: /Create products and save opening stock/ }).click();
   await d.waitFor({ state: "hidden" });
   await nav().getByRole("button", { name: "Dashboard", exact: true }).click();
   mkdirSync("artifacts", { recursive: true });
@@ -214,7 +214,7 @@ try {
   );
   await batch("Record sale", code, "2");
   await save();
-  await batch("Return sold inventory", code, "1", "Original sale");
+  await batch("Record customer return", code, "1", "Original sale");
   await save();
   data = await (await page.request.get(base + "/api/data")).json();
   assert.equal(data.products[0].stock, "3");
@@ -224,9 +224,9 @@ try {
     mobileNavBox && mobileNavBox.x >= 0,
     "Mobile navigation must stay on screen",
   );
-  await nav().getByRole("button", { name: "Operations", exact: true }).click();
+  await nav().getByRole("button", { name: "Stock activity", exact: true }).click();
   await page
-    .getByRole("heading", { name: "Operations", exact: true })
+    .getByRole("heading", { name: "Stock activity", exact: true })
     .waitFor();
   await nav().getByRole("button", { name: "Dashboard", exact: true }).click();
   await page.screenshot({
@@ -254,17 +254,17 @@ try {
   const manufacturerProductName = `Manufacturer product ${suffix}`,
     manufacturerProductCode = `M${suffix}`;
   await page
-    .getByRole("button", { name: "Record ready products", exact: true })
+    .getByRole("button", { name: "Record finished stock", exact: true })
     .click();
   d = page.getByRole("dialog");
-  await d.getByRole("button", { name: "Add new product", exact: true }).click();
+  await d.getByRole("button", { name: "Enter new product details", exact: true }).click();
   await d
     .getByLabel("Product name", { exact: true })
     .fill(manufacturerProductName);
   await d
     .getByLabel("Barcode (optional)", { exact: true })
     .fill(manufacturerProductCode);
-  await d.getByRole("button", { name: "Add product", exact: true }).click();
+  await d.getByRole("button", { name: "Create product and add to list", exact: true }).click();
   data = await (await page.request.get(base + "/api/data")).json();
   const manufacturerProduct = data.products.find(
     (p: { name: string }) => p.name === manufacturerProductName,
@@ -281,7 +281,7 @@ try {
   await d.getByLabel("loosePieces row 2").fill("3");
   await save();
   await page
-    .getByRole("button", { name: "Dispatch ready products", exact: true })
+    .getByRole("button", { name: "Send stock to warehouse", exact: true })
     .click();
   d = page.getByRole("dialog");
   await d.getByLabel("Reason / notes").fill("Dispatch production batch");
@@ -308,7 +308,7 @@ try {
     (e: { type: string }) => e.type === "DISPATCH",
   ).id;
   await page
-    .getByRole("button", { name: "Receive manufacturer dispatch", exact: true })
+    .getByRole("button", { name: "Receive stock from manufacturer", exact: true })
     .click();
   d = page.getByRole("dialog");
   const dispatchOptions = await d

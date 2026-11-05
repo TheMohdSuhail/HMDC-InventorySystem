@@ -43,25 +43,46 @@ type Product = Data["products"][number];
 type Event = Data["events"][number];
 type Mode = QuantityInput["type"] | "PURCHASE" | "PO_RECEIVE" | "LEGACY_RETURN";
 const titles: Record<Mode, string> = {
-  ASSIGN: "Assign branch stock",
-  BRANCH_RETURN: "Return branch stock",
-  READY: "Record ready products",
-  DISPATCH: "Dispatch ready products",
-  RECEIVE: "Receive manufacturer dispatch",
+  ASSIGN: "Send stock to branch",
+  BRANCH_RETURN: "Return branch stock to warehouse",
+  READY: "Record finished stock",
+  DISPATCH: "Send stock to warehouse",
+  RECEIVE: "Receive stock from manufacturer",
   SALE: "Record sale",
-  RETURN: "Return sold inventory",
-  STOCK_IN: "Receive stock",
+  RETURN: "Record customer return",
+  STOCK_IN: "Add stock to warehouse",
   LOSS: "Record stock loss",
-  DAMAGED: "Move to damaged",
-  EXPIRED: "Move to expired",
-  QUARANTINED: "Quarantine stock",
-  RELEASE: "Release quarantined stock",
-  DISPOSE_DAMAGED: "Dispose damaged stock",
-  DISPOSE_EXPIRED: "Dispose expired stock",
-  DISPOSE_QUARANTINED: "Dispose quarantined stock",
+  DAMAGED: "Mark stock as damaged",
+  EXPIRED: "Mark stock as expired",
+  QUARANTINED: "Put stock on hold",
+  RELEASE: "Make held stock available",
+  DISPOSE_DAMAGED: "Permanently remove damaged stock",
+  DISPOSE_EXPIRED: "Permanently remove expired stock",
+  DISPOSE_QUARANTINED: "Permanently remove held stock",
   PURCHASE: "Create purchase order",
-  PO_RECEIVE: "Receive purchase order",
-  LEGACY_RETURN: "Return earlier sale",
+  PO_RECEIVE: "Receive stock from supplier",
+  LEGACY_RETURN: "Record return from old sales records",
+};
+const confirmLabels: Record<Mode, string> = {
+  ASSIGN: "Confirm stock transfer to branch",
+  BRANCH_RETURN: "Confirm stock return to warehouse",
+  READY: "Save finished stock",
+  DISPATCH: "Confirm stock sent to warehouse",
+  RECEIVE: "Confirm receipt from manufacturer",
+  STOCK_IN: "Confirm stock addition",
+  SALE: "Save sale",
+  RETURN: "Save customer return",
+  LOSS: "Confirm stock loss",
+  DAMAGED: "Confirm damaged stock",
+  EXPIRED: "Confirm expired stock",
+  QUARANTINED: "Confirm stock on hold",
+  RELEASE: "Confirm stock available for sale",
+  DISPOSE_DAMAGED: "Permanently remove damaged stock",
+  DISPOSE_EXPIRED: "Permanently remove expired stock",
+  DISPOSE_QUARANTINED: "Permanently remove held stock",
+  PURCHASE: "Save purchase order",
+  PO_RECEIVE: "Confirm receipt from supplier",
+  LEGACY_RETURN: "Save return from old sales records",
 };
 const fmt = (v: unknown) =>
   Number(String(v ?? 0)).toLocaleString("en-IN", { maximumFractionDigits: 3 });
@@ -243,7 +264,7 @@ export default function QuantityApp() {
               : "My assigned inventory"}
         </h2>
         <a className="export-link" href="/api/export?type=products">
-          Export Excel
+          Download inventory Excel
         </a>
       </div>
       <div className="filters quantity-search">
@@ -258,7 +279,7 @@ export default function QuantityApp() {
         />
         <button className="secondary" onClick={() => setCamera(true)}>
           <ScanLine size={17} />
-          Scan barcode
+          Find product by barcode
         </button>
       </div>
       <div className="table-wrap">
@@ -272,7 +293,7 @@ export default function QuantityApp() {
               <th>Expiry date</th>
               {(admin || branch) && (
                 <>
-                  <th>Damaged / Expired / Quarantine</th>
+                  <th>Damaged / Expired / On hold</th>
                   {admin && <th>Manage</th>}
                 </>
               )}
@@ -327,7 +348,7 @@ export default function QuantityApp() {
                         className="secondary"
                         onClick={() => setProduct(p)}
                       >
-                        Edit
+                        Edit product
                       </button>
                     </td>
                   </>
@@ -341,7 +362,7 @@ export default function QuantityApp() {
             className="secondary"
             onClick={() => setVisibleProducts((n) => n + 50)}
           >
-            Show next 50 products ({visibleProducts} of {filtered.length})
+            Show 50 more products ({visibleProducts} of {filtered.length})
           </button>
         )}
         {!filtered.length && (
@@ -373,9 +394,9 @@ export default function QuantityApp() {
                   <div className="small muted">{e.id}</div>
                 </td>
                 <td>
-                  {e.type.replaceAll("_", " ")}
+                  {e.type === "QUARANTINED" ? "On hold" : e.type === "DISPOSE_QUARANTINED" ? "Permanently remove held stock" : e.type.replaceAll("_", " ")}
                   {e.type === "RETURN" && (
-                    <div className="small muted">{e.condition}</div>
+                    <div className="small muted">{e.condition === "QUARANTINED" ? "On hold" : e.condition}</div>
                   )}
                 </td>
                 {admin && <td>{owner(e.ownerId)}</td>}
@@ -430,7 +451,7 @@ export default function QuantityApp() {
               }}
             >
               <n.icon size={18} />
-              {n.name}
+              {n.name === "Operations" ? "Stock activity" : n.name}
             </button>
           ))}
         </nav>
@@ -445,14 +466,14 @@ export default function QuantityApp() {
             disabled={loggingOut}
           >
             <LogOut size={16} />
-            {loggingOut ? "Logging out..." : "Logout"}
+            {loggingOut ? "Logging out..." : "Log out"}
           </button>
         </div>
       </aside>
       <main className="main">
         <header className="topbar">
           <span>
-            {manufacturer ? "Production" : "Inventory"} / {safePage}
+            {manufacturer ? "Production" : "Inventory"} / {safePage === "Operations" ? "Stock activity" : safePage}
           </span>
           <div className="topbar-right">
             <button
@@ -461,7 +482,7 @@ export default function QuantityApp() {
               disabled={loggingOut}
             >
               <LogOut size={16} />
-              {loggingOut ? "Logging out..." : "Logout"}
+              {loggingOut ? "Logging out..." : "Log out"}
             </button>
             <span className="small muted" role="status">
               {manufacturer ? "Production connected" : "Inventory connected"}
@@ -483,7 +504,7 @@ export default function QuantityApp() {
           <div className="page-head">
             <div>
               <p className="eyebrow">{data.settings.name}</p>
-              <h1>{safePage}</h1>
+              <h1>{safePage === "Operations" ? "Stock activity" : safePage}</h1>
               <p className="muted">
                 {admin
                   ? "Manage your warehouse, branches and manufacturers."
@@ -551,22 +572,22 @@ export default function QuantityApp() {
             <>
               {admin && (
                 <div className="actions quantity-actions">
-                  <button onClick={() => setProduct("new")}>Add product</button>
+                  <button onClick={() => setProduct("new")}>Enter new product details</button>
                   <button
                     className="secondary"
                     onClick={() => setBulk("import")}
                   >
-                    Bulk import Excel
+                    Import new products from Excel
                   </button>
                   <button className="secondary" onClick={() => setBulk("scan")}>
                     <ScanLine size={16} />
-                    Scan products
+                    Add new products by barcode
                   </button>
                   <button
                     className="secondary"
                     onClick={() => setMode("STOCK_IN")}
                   >
-                    Receive stock
+                    Add stock to warehouse
                   </button>
                 </div>
               )}
@@ -577,13 +598,13 @@ export default function QuantityApp() {
             <>
               <div className="actions quantity-actions">
                 <button onClick={() => setMode("ASSIGN")}>
-                  Assign stock in bulk
+                  Send stock to branch
                 </button>
                 <button
                   className="secondary"
                   onClick={() => setMode("BRANCH_RETURN")}
                 >
-                  Return branch stock
+                  Return branch stock to warehouse
                 </button>
                 <button
                   className="secondary"
@@ -623,21 +644,21 @@ export default function QuantityApp() {
                       className="secondary"
                       onClick={() => setManufacturerProduct(true)}
                     >
-                      Add new product
+                      Enter new product details
                     </button>
                     <button onClick={() => setMode("READY")}>
-                      Record ready products
+                      Record finished stock
                     </button>
                     <button
                       className="secondary"
                       onClick={() => setMode("DISPATCH")}
                     >
-                      Dispatch in bulk
+                      Send stock to warehouse
                     </button>
                   </>
                 ) : (
                   <button onClick={() => setMode("RECEIVE")}>
-                    Receive dispatch in bulk
+                    Receive stock from manufacturer
                   </button>
                 )}
               </div>
@@ -729,7 +750,7 @@ export default function QuantityApp() {
                 <div className="section-head">
                   <h2>Stock operations</h2>
                   <a className="export-link" href="/api/export?type=operations">
-                    Export Excel
+                    Download stock activity Excel
                   </a>
                 </div>
                 {history(data.events)}
@@ -754,7 +775,7 @@ export default function QuantityApp() {
                       {r.items
                         .map(
                           (i) =>
-                            `${names(i.productId)}: ${fmt(i.quantity)} ${i.condition}`,
+                            `${names(i.productId)}: ${fmt(i.quantity)} ${i.condition === "QUARANTINED" ? "On hold" : i.condition}`,
                         )
                         .join(", ")}
                     </p>
@@ -767,13 +788,13 @@ export default function QuantityApp() {
             <>
               <div className="actions quantity-actions">
                 <button onClick={() => setMode("PURCHASE")}>
-                  New bulk purchase order
+                  Create purchase order
                 </button>
                 <button
                   className="secondary"
                   onClick={() => setMode("PO_RECEIVE")}
                 >
-                  Receive order
+                  Receive stock from supplier
                 </button>
               </div>
               <section className="panel">
@@ -802,7 +823,7 @@ export default function QuantityApp() {
             <section className="panel">
               <div className="section-head">
                 <h2>Suppliers</h2>
-                <button onClick={() => setSupplier(true)}>Add supplier</button>
+                <button onClick={() => setSupplier(true)}>Enter new supplier details</button>
               </div>
               {data.suppliers.map((s) => (
                 <p key={s.id}>
@@ -818,7 +839,7 @@ export default function QuantityApp() {
                 <div className="section-head">
                   <h2>Quantity history</h2>
                   <a className="export-link" href="/api/export?type=operations">
-                    Export operations (Excel)
+                    Download stock activity Excel
                   </a>
                 </div>
                 {history(data.events)}
@@ -882,6 +903,7 @@ export default function QuantityApp() {
       </main>
       {camera && (
         <Scanner
+          actionLabel="Find product by barcode"
           onScan={(code) => {
             setSearch(code);
             setCamera(false);
@@ -919,7 +941,7 @@ export default function QuantityApp() {
         />
       )}
       {supplier && (
-        <Modal title="Add supplier" close={() => setSupplier(false)}>
+        <Modal title="Enter new supplier details" close={() => setSupplier(false)}>
           <form
             onSubmit={async (e) => {
               e.preventDefault();
@@ -943,7 +965,7 @@ export default function QuantityApp() {
                 </label>
               ))}
             </div>
-            <button>Save supplier</button>
+            <button>Create supplier</button>
           </form>
         </Modal>
       )}
@@ -962,7 +984,7 @@ function ManufacturerProductForm({
   const [error, setError] = useState("");
   return (
     <Modal
-      title="Add product for manufacturing"
+      title="Enter new product details"
       close={() => {
         if (!busy) close();
       }}
@@ -1018,7 +1040,7 @@ function ManufacturerProductForm({
           </p>
         )}
         <button disabled={busy}>
-          {busy ? "Adding product…" : "Add product"}
+          {busy ? "Adding product…" : "Create product"}
         </button>
       </form>
     </Modal>
@@ -1042,7 +1064,7 @@ function ProductForm({
   const p = product === "new" ? null : product;
   return (
     <Modal
-      title={p ? "Edit product" : "Add product"}
+      title={p ? "Edit product" : "Enter new product details"}
       close={() => {
         if (!busy) close();
       }}
@@ -1123,7 +1145,7 @@ function ProductForm({
             className="secondary"
             onClick={() => setCamera(true)}
           >
-            Scan barcode
+            Fill barcode using camera
           </button>
           <label className="check-label">
             <input
@@ -1134,10 +1156,11 @@ function ProductForm({
             Active product
           </label>
         </div>
-        <button disabled={busy}>{busy ? "Saving…" : "Save product"}</button>
+        <button disabled={busy}>{busy ? "Saving…" : p ? "Save product changes" : "Create product"}</button>
       </form>
       {camera && (
         <Scanner
+          actionLabel="Use entered barcode"
           onScan={(code) => {
             setBarcode(code);
             setCamera(false);
@@ -1389,7 +1412,7 @@ function BatchForm({
       }}
     >
       {addingProduct && (
-        <section className="panel" aria-label="Add new product">
+        <section className="panel" aria-label="Enter new product details">
           <p className="small muted">
             Add the product here and it will be included in this ready batch.
           </p>
@@ -1465,7 +1488,7 @@ function BatchForm({
             )}
             <div className="actions">
               <button disabled={busy}>
-                {busy ? "Adding product…" : "Add product"}
+                {busy ? "Adding product…" : "Create product and add to list"}
               </button>
               <button
                 type="button"
@@ -1476,7 +1499,7 @@ function BatchForm({
                   setError("");
                 }}
               >
-                Cancel
+                Cancel new product entry
               </button>
             </div>
           </form>
@@ -1501,7 +1524,7 @@ function BatchForm({
               setAddingProduct(true);
             }}
           >
-            Add new product
+            Enter new product details
           </button>
         )}
         <div className="form-grid">
@@ -1517,7 +1540,7 @@ function BatchForm({
               >
                 {["SELLABLE", "DAMAGED", "EXPIRED", "QUARANTINED"].map((c) => (
                   <option key={c} value={c}>
-                    {c}
+                    {{ SELLABLE: "Available for sale", DAMAGED: "Damaged", EXPIRED: "Expired", QUARANTINED: "On hold" }[c]}
                   </option>
                 ))}
               </select>
@@ -1600,7 +1623,7 @@ function BatchForm({
                   setConfirmed(false);
                 }}
               >
-                <option value="">Choose record</option>
+                <option value="">{mode === "RECEIVE" ? "Choose manufacturer delivery" : mode === "PO_RECEIVE" ? "Choose purchase order" : "Choose original sale"}</option>
                 {mode === "PO_RECEIVE"
                   ? data.purchases
                       .filter((p) =>
@@ -1628,7 +1651,7 @@ function BatchForm({
                       ))}
                 {mode === "RECEIVE" && sourceEvents.length === 0 && (
                   <option value="" disabled>
-                    No pending manufacturer dispatches
+                    No manufacturer deliveries to receive
                   </option>
                 )}
               </select>
@@ -1654,7 +1677,7 @@ function BatchForm({
             type="button"
             onClick={() => scan(barcode)}
           >
-            Add scan
+            Add item by barcode
           </button>
           <button
             className="secondary"
@@ -1662,7 +1685,7 @@ function BatchForm({
             onClick={() => setCamera(true)}
           >
             <ScanLine size={16} />
-            Camera
+            Scan items with camera
           </button>
           <select
             aria-label="Add product to batch"
@@ -1774,7 +1797,7 @@ function BatchForm({
                       <button
                         className="icon-button"
                         type="button"
-                        aria-label={`Remove row ${index + 1}`}
+                        aria-label={`Remove item ${index + 1} from list`}
                         onClick={() => {
                           setRows(queue.current.filter((_, i) => i !== index));
                           setConfirmed(false);
@@ -1807,7 +1830,7 @@ function BatchForm({
               </strong>
             </p>
             <button type="button" disabled={busy} onClick={() => void submit()}>
-              {busy ? "Saving…" : "Confirm batch"}
+              {busy ? "Saving…" : confirmLabels[mode]}
             </button>
             <button
               type="button"
@@ -1819,11 +1842,11 @@ function BatchForm({
             </button>
           </div>
         ) : (
-          <button disabled={!rows.length || busy}>Review batch</button>
+          <button disabled={!rows.length || busy}>Review entries</button>
         )}
       </form>
       {camera && (
-        <Scanner continuous onScan={scan} onClose={() => setCamera(false)} />
+        <Scanner actionLabel="Add item by barcode" continuous onScan={scan} onClose={() => setCamera(false)} />
       )}
     </Modal>
   );
