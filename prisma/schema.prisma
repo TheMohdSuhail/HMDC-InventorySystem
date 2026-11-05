@@ -1,0 +1,322 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "mysql"
+  url = env("DATABASE_URL")
+}
+model User {
+  id String @id @default(cuid())
+  email String @unique @db.VarChar(191)
+  passwordHash String @db.VarChar(191)
+  role String @default("BRANCH_MANAGER") @db.VarChar(16)
+  active Boolean @default(true)
+  sessions Session[]
+  batches Batch[]
+  createdAt DateTime @default(now()) @db.DateTime(3)
+}
+model Session {
+  id String @id @db.VarChar(64)
+  userId String
+  user User @relation(fields:[userId], references:[id], onDelete:Restrict)
+  expiresAt DateTime @db.DateTime(3)
+  @@index([expiresAt])
+}
+model LoginAttempt {
+  key String @id @db.VarChar(64)
+  count Int @default(0)
+  resetAt DateTime @db.DateTime(3)
+}
+model Product {
+  id String @id @default(cuid())
+  name String @db.VarChar(191)
+  sku String? @unique @db.VarChar(191)
+  barcode String? @unique @db.VarChar(191)
+  category String? @db.VarChar(191)
+  expiryDate DateTime? @db.Date
+  unit String @default("pcs") @db.VarChar(32)
+  purchasePrice Decimal @db.Decimal(18,4)
+  sellingPrice Decimal @db.Decimal(18,4)
+  averageCost Decimal @default(0) @db.Decimal(18,6)
+  stock Decimal @default(0) @db.Decimal(18,3)
+  damaged Decimal @default(0) @db.Decimal(18,3)
+  expired Decimal @default(0) @db.Decimal(18,3)
+  quarantined Decimal @default(0) @db.Decimal(18,3)
+  minStock Decimal @default(5) @db.Decimal(18,3)
+  active Boolean @default(true)
+  notes String? @db.Text
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  updatedAt DateTime @updatedAt @db.DateTime(3)
+  saleItems SaleItem[]
+  purchaseItems PurchaseOrderItem[]
+  returnItems ReturnItem[]
+  movements StockMovement[]
+  batches Batch[]
+  @@index([name])
+}
+model Supplier {
+  id String @id @default(cuid())
+  name String @db.VarChar(191)
+  contact String? @db.VarChar(191)
+  phone String? @db.VarChar(64)
+  email String? @db.VarChar(191)
+  address String? @db.Text
+  notes String? @db.Text
+  active Boolean @default(true)
+  orders PurchaseOrder[]
+  createdAt DateTime @default(now()) @db.DateTime(3)
+}
+model Sale {
+  id String @id @default(cuid())
+  number String @unique @db.VarChar(64)
+  requestKey String @unique @db.VarChar(64)
+  customer String? @db.VarChar(191)
+  notes String? @db.Text
+  status String @default("COMPLETED") @db.VarChar(32)
+  total Decimal @db.Decimal(18,4)
+  gross Decimal @db.Decimal(18,4)
+  discount Decimal @db.Decimal(18,4)
+  cogs Decimal @db.Decimal(18,4)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  cancelledAt DateTime? @db.DateTime(3)
+  cancelReason String? @db.Text
+  items SaleItem[]
+  @@index([createdAt])
+}
+model SaleItem {
+  id String @id @default(cuid())
+  saleId String
+  sale Sale @relation(fields:[saleId],references:[id],onDelete:Restrict)
+  productId String
+  product Product @relation(fields:[productId],references:[id],onDelete:Restrict)
+  quantity Decimal @db.Decimal(18,3)
+  returned Decimal @default(0) @db.Decimal(18,3)
+  unitPrice Decimal @db.Decimal(18,4)
+  unitCost Decimal @db.Decimal(18,6)
+  discount Decimal @db.Decimal(18,4)
+  total Decimal @db.Decimal(18,4)
+  overrideReason String? @db.Text
+  returns ReturnItem[]
+  batches SaleItemBatch[]
+  @@index([productId])
+  @@index([saleId])
+}
+model SalesReturn {
+  id String @id @default(cuid())
+  number String @unique @db.VarChar(64)
+  requestKey String @unique @db.VarChar(64)
+  reason String @db.Text
+  notes String? @db.Text
+  manual Boolean @default(false)
+  refund Decimal @db.Decimal(18,4)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  items ReturnItem[]
+  @@index([createdAt])
+}
+model ReturnItem {
+  id String @id @default(cuid())
+  returnId String
+  return SalesReturn @relation(fields:[returnId],references:[id],onDelete:Restrict)
+  saleItemId String?
+  saleItem SaleItem? @relation(fields:[saleItemId],references:[id],onDelete:Restrict)
+  productId String
+  product Product @relation(fields:[productId],references:[id],onDelete:Restrict)
+  quantity Decimal @db.Decimal(18,3)
+  condition String @db.VarChar(32)
+  refund Decimal @db.Decimal(18,4)
+  unitCost Decimal @db.Decimal(18,6)
+  @@index([saleItemId])
+  @@index([productId])
+  @@index([returnId])
+}
+model PurchaseOrder {
+  id String @id @default(cuid())
+  number String @unique @db.VarChar(64)
+  requestKey String @unique @db.VarChar(64)
+  supplierId String
+  supplier Supplier @relation(fields:[supplierId],references:[id],onDelete:Restrict)
+  status String @default("ORDERED") @db.VarChar(32)
+  expectedAt DateTime? @db.DateTime(3)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  notes String? @db.Text
+  total Decimal @db.Decimal(18,4)
+  paid Decimal @default(0) @db.Decimal(18,4)
+  items PurchaseOrderItem[]
+  receipts PurchaseReceipt[]
+  payments SupplierPayment[]
+  @@index([supplierId])
+  @@index([createdAt])
+}
+model PurchaseOrderItem {
+  id String @id @default(cuid())
+  orderId String
+  order PurchaseOrder @relation(fields:[orderId],references:[id],onDelete:Restrict)
+  productId String
+  product Product @relation(fields:[productId],references:[id],onDelete:Restrict)
+  quantity Decimal @db.Decimal(18,3)
+  received Decimal @default(0) @db.Decimal(18,3)
+  unitCost Decimal @db.Decimal(18,4)
+  receipts PurchaseReceiptItem[]
+  @@index([orderId])
+  @@index([productId])
+}
+model PurchaseReceipt {
+  id String @id @default(cuid())
+  orderId String
+  order PurchaseOrder @relation(fields:[orderId],references:[id],onDelete:Restrict)
+  requestKey String @unique @db.VarChar(64)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  items PurchaseReceiptItem[]
+  @@index([orderId])
+  @@index([createdAt])
+}
+model PurchaseReceiptItem {
+  id String @id @default(cuid())
+  receiptId String
+  receipt PurchaseReceipt @relation(fields:[receiptId],references:[id],onDelete:Restrict)
+  orderItemId String
+  orderItem PurchaseOrderItem @relation(fields:[orderItemId],references:[id],onDelete:Restrict)
+  quantity Decimal @db.Decimal(18,3)
+  unitCost Decimal @db.Decimal(18,4)
+  @@index([receiptId])
+  @@index([orderItemId])
+}
+model SupplierPayment {
+  id String @id @default(cuid())
+  orderId String
+  order PurchaseOrder @relation(fields:[orderId],references:[id],onDelete:Restrict)
+  requestKey String @unique @db.VarChar(64)
+  amount Decimal @db.Decimal(18,4)
+  method String @db.VarChar(64)
+  reference String? @db.VarChar(191)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  @@index([orderId])
+}
+model StockMovement {
+  id String @id @default(cuid())
+  productId String
+  product Product @relation(fields:[productId],references:[id],onDelete:Restrict)
+  type String @db.VarChar(32)
+  bucket String @default("SELLABLE") @db.VarChar(32)
+  quantity Decimal @db.Decimal(18,3)
+  unitCost Decimal @db.Decimal(18,6)
+  reference String @db.VarChar(191)
+  reason String? @db.Text
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  @@index([productId,createdAt])
+  @@index([createdAt])
+  @@index([reference])
+}
+model AuditLog {
+  id String @id @default(cuid())
+  action String @db.VarChar(64)
+  reference String @db.VarChar(191)
+  detail String @db.Text
+  actorId String @default("system") @db.VarChar(191)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  @@index([createdAt])
+}
+model Operation {
+  key String @id @db.VarChar(64)
+  action String @db.VarChar(64)
+  result String @db.LongText
+  createdAt DateTime @default(now()) @db.DateTime(3)
+}
+model Settings {
+  id Int @id @default(1)
+  name String @default("Herbal Maza") @db.VarChar(191)
+  minStock Decimal @default(5) @db.Decimal(18,3)
+  dateFormat String @default("dd/MM/yyyy") @db.VarChar(32)
+}
+
+// Location balances are separate from Product.stock (central warehouse).
+model LocationBalance {
+  ownerId String @db.VarChar(191)
+  productId String @db.VarChar(191)
+  quantity Decimal @default(0) @db.Decimal(18,3)
+  damaged Decimal @default(0) @db.Decimal(18,3)
+  expired Decimal @default(0) @db.Decimal(18,3)
+  quarantined Decimal @default(0) @db.Decimal(18,3)
+  @@id([ownerId, productId])
+}
+model QuantityEvent {
+  id String @id @default(cuid())
+  requestKey String @unique @db.VarChar(64)
+  fingerprint String @db.VarChar(64)
+  type String @db.VarChar(32)
+  condition String @default("SELLABLE") @db.VarChar(32)
+  actorId String @db.VarChar(191)
+  ownerId String @db.VarChar(191)
+  sourceId String? @db.VarChar(191)
+  notes String @db.Text
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  items QuantityLine[]
+  @@index([ownerId, createdAt])
+}
+model QuantityLine {
+  id String @id @default(cuid())
+  eventId String
+  event QuantityEvent @relation(fields:[eventId],references:[id],onDelete:Restrict)
+  productId String @db.VarChar(191)
+  quantity Decimal @db.Decimal(18,3)
+  processed Decimal @default(0) @db.Decimal(18,3)
+  boxes Int @default(0)
+  piecesPerBox Int @default(1)
+  loosePieces Int @default(0)
+  batches QuantityLineBatch[]
+  @@index([eventId])
+}
+
+// Phase 1 snapshots only: existing stock writers do not maintain these yet.
+model Batch {
+  id String @id @default(cuid()) @db.VarChar(191)
+  productId String @db.VarChar(191)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  manufacturerId String? @db.VarChar(191)
+  manufacturer User? @relation(fields: [manufacturerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  batchNo String @db.VarChar(191)
+  mfgDate DateTime? @db.Date
+  expiryDate DateTime? @db.Date
+  isLegacy Boolean @default(false)
+  identityKey String @unique @db.VarChar(255)
+  balances BatchBalance[]
+  quantityLines QuantityLineBatch[]
+  saleItems SaleItemBatch[]
+  @@unique([productId, manufacturerId, batchNo])
+  @@index([productId, expiryDate])
+  @@index([manufacturerId])
+}
+
+model BatchBalance {
+  ownerId String @db.VarChar(191)
+  batchId String @db.VarChar(191)
+  batch Batch @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  quantity Decimal @default(0) @db.Decimal(18,3)
+  damaged Decimal @default(0) @db.Decimal(18,3)
+  expired Decimal @default(0) @db.Decimal(18,3)
+  quarantined Decimal @default(0) @db.Decimal(18,3)
+  @@id([ownerId, batchId])
+  @@index([batchId])
+}
+
+model QuantityLineBatch {
+  lineId String @db.VarChar(191)
+  line QuantityLine @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  batchId String @db.VarChar(191)
+  batch Batch @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  quantity Decimal @db.Decimal(18,3)
+  processed Decimal @default(0) @db.Decimal(18,3)
+  @@id([lineId, batchId])
+  @@index([batchId])
+}
+
+model SaleItemBatch {
+  saleItemId String @db.VarChar(191)
+  saleItem SaleItem @relation(fields: [saleItemId], references: [id], onDelete: Restrict)
+  batchId String @db.VarChar(191)
+  batch Batch @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  quantity Decimal @db.Decimal(18,3)
+  returned Decimal @default(0) @db.Decimal(18,3)
+  @@id([saleItemId, batchId])
+  @@index([batchId])
+}
