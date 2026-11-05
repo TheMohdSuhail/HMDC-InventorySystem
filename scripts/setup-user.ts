@@ -8,11 +8,11 @@ async function main() {
     !email ||
     !email.includes("@") ||
     !password ||
-    password.length < 16 ||
+    password.length < 6 ||
     Buffer.byteLength(password) > 72
   )
     throw new Error(
-      "Set SETUP_EMAIL and SETUP_PASSWORD (16–72 bytes) in your environment",
+      "Set SETUP_EMAIL and SETUP_PASSWORD (at least 6 characters, at most 72 bytes) in your environment",
     );
   if (await db.user.count())
     throw new Error(

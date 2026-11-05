@@ -40,7 +40,7 @@ Copy `.env.example` to `.env` for a fresh installation and replace placeholders 
 | `AUTH_SECRET`       | At least 32 random characters; seals session cookies and hashes database session tokens. Generate with `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`. |
 | `APP_URL`           | Exact external origin, e.g. `https://inventory.example.com`, without a path. Used to reject cross-origin writes.                                                                   |
 | `SETUP_EMAIL`       | First admin email, CLI setup only.                                                                                                                                                 |
-| `SETUP_PASSWORD`    | First admin or reset password, CLI only; 16–72 bytes. Remove after use.                                                                                                            |
+| `SETUP_PASSWORD`    | First admin or reset password, CLI only; at least 6 characters, at most 72 bytes. Remove after use.                                                                                                            |
 | `TEST_DATABASE_URL` | Optional separate database whose name must start with `inventory_validation_`. Never set this to the application database.                                                         |
 
 Prisma resolves CA paths relative to the `prisma` directory. The provided Aiven certificate is stored in `prisma/certs/aiven-ca.pem`, excluded from version control. Strict certificate validation is enabled, following [Prisma's MySQL TLS documentation](https://docs.prisma.io/docs/orm/v6/overview/databases/mysql). No credentials are sent to the browser.

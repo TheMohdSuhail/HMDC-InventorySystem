@@ -16,7 +16,7 @@ const schema = z.object({
   active: z.boolean(),
   password: z
     .string()
-    .min(16)
+    .min(6, "Password must be at least 6 characters")
     .refine(
       (v) => Buffer.byteLength(v) <= 72,
       "Password must be at most 72 bytes",

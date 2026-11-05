@@ -3,8 +3,8 @@ import { hash } from "bcryptjs";
 const db = new PrismaClient();
 async function main() {
   const password = process.env.SETUP_PASSWORD;
-  if (!password || password.length < 16 || Buffer.byteLength(password) > 72)
-    throw new Error("Set a 16–72 byte SETUP_PASSWORD");
+  if (!password || password.length < 6 || Buffer.byteLength(password) > 72)
+    throw new Error("Set SETUP_PASSWORD to at least 6 characters and at most 72 bytes");
   await db.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: "owner" },

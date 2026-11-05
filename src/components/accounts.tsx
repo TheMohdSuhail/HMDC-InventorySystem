@@ -150,7 +150,7 @@ export default function Accounts({ admin }: { admin: boolean }) {
                   type="password"
                   autoComplete="new-password"
                   required={!selected}
-                  minLength={16}
+                  minLength={6}
                   maxLength={72}
                 />
               </label>
@@ -187,7 +187,7 @@ export default function Accounts({ admin }: { admin: boolean }) {
       <section className="panel" style={{ maxWidth: 760 }}>
         <h2>Change your password</h2>
         <p className="small muted" style={{ margin: "8px 0 22px" }}>
-          Use at least 16 characters, up to 72 bytes. Changing your password
+          Use at least 6 characters, up to 72 bytes. Changing your password
           signs out all your sessions.
         </p>
         <form
@@ -230,7 +230,7 @@ export default function Accounts({ admin }: { admin: boolean }) {
                 type="password"
                 autoComplete="new-password"
                 required
-                minLength={16}
+                minLength={6}
                 maxLength={72}
               />
             </label>
