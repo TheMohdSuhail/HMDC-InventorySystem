@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Leaf, ArrowRight, ShieldCheck } from "lucide-react";
+import { PasswordInput } from "@/components/password-input";
 export default function Login() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -59,9 +60,8 @@ export default function Login() {
           </label>
           <label>
             Password
-            <input
+            <PasswordInput
               name="password"
-              type="password"
               autoComplete="current-password"
               required
               maxLength={128}

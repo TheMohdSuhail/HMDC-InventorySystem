@@ -5,7 +5,7 @@ import { hash, compare } from "bcryptjs";
 import { z } from "zod";
 const password = z
   .string()
-  .min(6, "Password must be at least 6 characters")
+  .min(1, "Password is required")
   .refine(
     (v) => Buffer.byteLength(v) <= 72,
     "Password must be at most 72 bytes",

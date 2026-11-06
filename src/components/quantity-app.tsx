@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useReducer,
   useState,
   type ReactNode,
 } from "react";
@@ -24,6 +25,18 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import Accounts from "./accounts";
+import InventorySkeleton from "./inventory-skeleton";
+import FilterBar from "./filter-bar";
+import {
+  expiryRangeError,
+  filterInventory,
+  indiaBusinessDate,
+  initialInventoryFilterState,
+  inventoryFilterReducer,
+  matchesExpiry,
+  defaultInventoryFilters,
+  type InventoryFilters,
+} from "@/lib/filters";
 import DashboardInsights from "./dashboard-insights";
 import type { Workspace } from "@/lib/workspace";
 import type { QuantityInput } from "@/lib/quantity";
@@ -146,6 +159,9 @@ export default function QuantityApp() {
   const [page, setPage] = useState("Dashboard");
   const [search, setSearch] = useState("");
   const [visibleProducts, setVisibleProducts] = useState(50);
+  const [inventoryFilterState, dispatchInventoryFilter] = useReducer(
+    inventoryFilterReducer, initialInventoryFilterState,
+  );
   const [mode, setMode] = useState<Mode | null>(null);
   const [product, setProduct] = useState<Product | "new" | null>(null);
   const [manufacturerProduct, setManufacturerProduct] = useState(false);
@@ -186,6 +202,7 @@ export default function QuantityApp() {
     const h = location.hash.slice(1);
     if (h) setPage(decodeURIComponent(h));
   }, []);
+  if (!data && !error) return <InventorySkeleton />;
   if (!data)
     return (
       <main className="content">
@@ -227,7 +244,27 @@ export default function QuantityApp() {
     : manufacturer
       ? "Production"
       : "Dashboard";
-  const filtered = data.products.filter((p) =>
+  const inventoryPage = safePage === "Inventory";
+  const today = indiaBusinessDate();
+  const filters = inventoryFilterState.filters;
+  const changeFilters = (patch: Partial<InventoryFilters>) =>
+    dispatchInventoryFilter({ type: "change", patch });
+  const expiryLabels = {
+    all: "All expiry dates", expired: "Already expired", "30": "Next 30 days",
+    "60": "Next 60 days", "90": "Next 90 days", custom: "Custom range", unset: "Expiry not set",
+  };
+  const stockLabels = { all: "All stock", in: "In stock", low: "Low", out: "Out" };
+  const chips: { id: string; label: string; remove: () => void }[] = [];
+  if (filters.search) chips.push({ id: "search", label: `Search: ${filters.search}`, remove: () => changeFilters({ search: "" }) });
+  if (filters.category) chips.push({ id: "category", label: `Category: ${filters.category}`, remove: () => changeFilters({ category: "" }) });
+  if (filters.stock !== "all") chips.push({ id: "stock", label: `Stock: ${stockLabels[filters.stock]}`, remove: () => changeFilters({ stock: "all" }) });
+  if (filters.expiry !== "all") chips.push({ id: "expiry", label: filters.expiry === "custom" ? `Expiry: ${filters.from || "start"} to ${filters.to || "end"}` : expiryLabels[filters.expiry], remove: () => changeFilters({ expiry: "all", from: "", to: "" }) });
+  if (filters.active !== "all") chips.push({ id: "active", label: filters.active === "active" ? "Active products" : "Archived products", remove: () => changeFilters({ active: "all" }) });
+  const categories = [...new Set(data.products.map((p) => p.category).filter((category): category is string => !!category))].sort((a, b) => a.localeCompare(b));
+  const visibleCount = inventoryPage ? inventoryFilterState.visibleCount : visibleProducts;
+  const filtered = inventoryPage ? filterInventory(
+    data.products, inventoryFilterState.appliedFilters, data.settings.minStock, today,
+  ) : data.products.filter((p) =>
     [p.name, p.sku, p.barcode, p.category].some((v) =>
       v?.toLowerCase().includes(search.toLowerCase()),
     ),
@@ -267,7 +304,47 @@ export default function QuantityApp() {
           Download inventory Excel
         </a>
       </div>
-      <div className="filters quantity-search">
+      {inventoryPage ? (
+        <FilterBar
+          search={filters.search}
+          onSearch={(value) => changeFilters({ search: value })}
+          searchAction={<button type="button" className="secondary" onClick={() => setCamera(true)}><ScanLine size={17} />Find product by barcode</button>}
+          chips={chips}
+          clear={() => dispatchInventoryFilter({ type: "clear" })}
+          count={filtered.length}
+          total={data.products.length}
+          error={expiryRangeError(filters)}
+        >
+          <label>Category
+            <select value={filters.category} onChange={(e) => changeFilters({ category: e.target.value })}>
+              <option value="">All categories</option>
+              {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+            </select>
+          </label>
+          <label>Stock status
+            <select value={filters.stock} onChange={(e) => changeFilters({ stock: e.target.value as InventoryFilters["stock"] })}>
+              {Object.entries(stockLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
+          <label>Expiry
+            <select value={filters.expiry} onChange={(e) => changeFilters({ expiry: e.target.value as InventoryFilters["expiry"] })}>
+              {(["all", "expired", "30", "60", "90", "custom", "unset"] as const).map((value) => <option key={value} value={value}>{expiryLabels[value]}</option>)}
+            </select>
+          </label>
+          {filters.expiry === "custom" && <>
+            <label>Expiry from<input type="date" value={filters.from} onChange={(e) => changeFilters({ from: e.target.value })} /></label>
+            <label>Expiry to<input type="date" value={filters.to} onChange={(e) => changeFilters({ to: e.target.value })} /></label>
+          </>}
+          <label>Product status
+            <select value={filters.active} onChange={(e) => changeFilters({ active: e.target.value as InventoryFilters["active"] })}>
+              <option value="all">Active and archived</option>
+              <option value="active">Active only</option>
+              <option value="archived">Archived only</option>
+            </select>
+          </label>
+          {!admin && <p className="muted small">Low stock uses the business default minimum of {fmt(data.settings.minStock)}.</p>}
+        </FilterBar>
+      ) : <div className="filters quantity-search">
         <input
           aria-label="Search inventory or scan barcode"
           placeholder="Search name, SKU or scan barcode + Enter"
@@ -281,7 +358,7 @@ export default function QuantityApp() {
           <ScanLine size={17} />
           Find product by barcode
         </button>
-      </div>
+      </div>}
       <div className="table-wrap">
         <table>
           <thead>
@@ -300,7 +377,7 @@ export default function QuantityApp() {
             </tr>
           </thead>
           <tbody>
-            {filtered.slice(0, visibleProducts).map((p) => (
+            {filtered.slice(0, visibleCount).map((p) => (
               <tr key={p.id}>
                 <td>
                   <strong>{p.name}</strong>
@@ -322,7 +399,12 @@ export default function QuantityApp() {
                   {p.expiryDate ? (
                     <>
                       <span>{p.expiryDate.slice(0, 10)}</span>
-                      {p.expiryDate.slice(0, 10) <
+                      {inventoryPage ? (
+                        matchesExpiry(p.expiryDate, { ...defaultInventoryFilters, expiry: "expired" }, today)
+                          ? <div className="error small">Expired</div>
+                          : matchesExpiry(p.expiryDate, { ...defaultInventoryFilters, expiry: "30" }, today)
+                            ? <div className="small">Expiring within 30 days</div> : null
+                      ) : p.expiryDate.slice(0, 10) <
                       new Date(Date.now() + 330 * 60000)
                         .toISOString()
                         .slice(0, 10) ? (
@@ -357,17 +439,17 @@ export default function QuantityApp() {
             ))}
           </tbody>
         </table>
-        {filtered.length > visibleProducts && (
+        {filtered.length > visibleCount && (
           <button
             className="secondary"
-            onClick={() => setVisibleProducts((n) => n + 50)}
+            onClick={() => inventoryPage ? dispatchInventoryFilter({ type: "more" }) : setVisibleProducts((n) => n + 50)}
           >
-            Show 50 more products ({visibleProducts} of {filtered.length})
+            Show 50 more products ({visibleCount} of {filtered.length})
           </button>
         )}
         {!filtered.length && (
           <p className="empty">
-            {search ? "No matching product" : "No inventory assigned yet"}
+            {inventoryPage ? "No products match these filters." : search ? "No matching product" : "No inventory assigned yet"}
           </p>
         )}
       </div>
@@ -905,7 +987,8 @@ export default function QuantityApp() {
         <Scanner
           actionLabel="Find product by barcode"
           onScan={(code) => {
-            setSearch(code);
+            if (inventoryPage) changeFilters({ search: code });
+            else setSearch(code);
             setCamera(false);
           }}
           onClose={() => setCamera(false)}

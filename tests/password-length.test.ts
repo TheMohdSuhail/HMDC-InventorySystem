@@ -43,9 +43,12 @@ describe.each(["create account", "reset account password", "change own password"
   "%s password length",
   (operation) => {
     it.each([
-      ["12345", 400],
+      ["", 400],
+      ["1", 200],
+      ["12345", 200],
       ["123456", 200],
       ["a".repeat(16), 200],
+      ["a".repeat(72), 200],
       ["a".repeat(73), 400],
       ["\u00e9".repeat(37), 400],
     ])("validates %j with status %i without a database", async (password, status) => {
@@ -76,10 +79,8 @@ describe.each(["create account", "reset account password", "change own password"
       } else {
         expect(mocks.transaction).not.toHaveBeenCalled();
         expect(mocks.hash).not.toHaveBeenCalled();
-        if (password.length === 5)
-          expect((await response.json()).error).toContain(
-            "Password must be at least 6 characters",
-          );
+        if (password.length === 0)
+          expect((await response.json()).error).toBeTruthy();
       }
     });
   },

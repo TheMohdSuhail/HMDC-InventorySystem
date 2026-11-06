@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { PasswordInput } from "@/components/password-input";
 type Role = "ADMIN" | "BRANCH_MANAGER" | "MANUFACTURER";
 type User = { id: string; email: string; role: Role; active: boolean };
 
@@ -145,12 +146,10 @@ export default function Accounts({ admin }: { admin: boolean }) {
                 {selected
                   ? "New password (leave blank to keep current)"
                   : "Initial password"}
-                <input
+                <PasswordInput
                   name="password"
-                  type="password"
                   autoComplete="new-password"
                   required={!selected}
-                  minLength={6}
                   maxLength={72}
                 />
               </label>
@@ -187,8 +186,7 @@ export default function Accounts({ admin }: { admin: boolean }) {
       <section className="panel" style={{ maxWidth: 760 }}>
         <h2>Change your password</h2>
         <p className="small muted" style={{ margin: "8px 0 22px" }}>
-          Use at least 6 characters, up to 72 bytes. Changing your password
-          signs out all your sessions.
+          Up to 72 characters. Changing your password signs out all your sessions.
         </p>
         <form
           onSubmit={async (e) => {
@@ -215,9 +213,8 @@ export default function Accounts({ admin }: { admin: boolean }) {
           <div className="form-grid">
             <label>
               Current password
-              <input
+              <PasswordInput
                 name="currentPassword"
-                type="password"
                 autoComplete="current-password"
                 required
                 maxLength={128}
@@ -225,12 +222,10 @@ export default function Accounts({ admin }: { admin: boolean }) {
             </label>
             <label>
               New password
-              <input
+              <PasswordInput
                 name="newPassword"
-                type="password"
                 autoComplete="new-password"
                 required
-                minLength={6}
                 maxLength={72}
               />
             </label>
