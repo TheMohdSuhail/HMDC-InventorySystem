@@ -7,6 +7,7 @@ coverage/
 *.tsbuildinfo
 .npm-cache/
 prisma/certs/*.pem
+!prisma/certs/aiven-ca.pem
 artifacts/
 audit*.json
 *backup*.sql

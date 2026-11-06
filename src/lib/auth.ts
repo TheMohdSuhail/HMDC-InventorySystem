@@ -63,8 +63,39 @@ export async function logout() {
   jar.delete(cookieName);
 }
 export function checkOrigin(request: Request) {
+  const origin = request.headers.get("origin");
+  if (!origin) return;
+
   const expected = process.env.APP_URL;
-  if (!expected) throw new Error("Configure APP_URL");
-  if (request.headers.get("origin") !== new URL(expected).origin)
-    throw new InventoryError("Invalid request origin");
+  let expectedOrigin: string | null = null;
+  if (expected) {
+    try {
+      expectedOrigin = new URL(expected).origin;
+    } catch {
+      expectedOrigin = null;
+    }
+  }
+
+  if (expectedOrigin && origin === expectedOrigin) {
+    return;
+  }
+
+  const host =
+    request.headers.get("x-forwarded-host") || request.headers.get("host");
+  const proto =
+    request.headers.get("x-forwarded-proto") ||
+    (request.url.startsWith("https") ? "https" : "http");
+  const hostOrigin = host ? `${proto}://${host}` : null;
+
+  if (hostOrigin && origin === hostOrigin) {
+    return;
+  }
+
+  try {
+    if (origin === new URL(request.url).origin) {
+      return;
+    }
+  } catch {}
+
+  throw new InventoryError("Invalid request origin");
 }

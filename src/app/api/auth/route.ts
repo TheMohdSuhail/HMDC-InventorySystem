@@ -62,7 +62,10 @@ export async function POST(request: Request) {
         { error: "Enter a valid email and password" },
         { status: 400 },
       );
-    console.error("Login failed", e instanceof Error ? e.name : "error");
+    console.error(
+      "Login failed:",
+      e instanceof Error ? `${e.name}: ${e.message}` : e,
+    );
     return NextResponse.json(
       { error: "Login unavailable. Check server configuration." },
       { status: 503 },
