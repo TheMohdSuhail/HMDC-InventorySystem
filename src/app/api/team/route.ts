@@ -9,8 +9,11 @@ export async function POST(request: Request) {
   const user = await currentUser();
   if (!user)
     return NextResponse.json({ error: "Please log in" }, { status: 401 });
-  if (user.role !== "ADMIN")
-    return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  if (!["ADMIN", "BRANCH_MANAGER"].includes(user.role))
+    return NextResponse.json(
+      { error: "Admin or branch access required" },
+      { status: 403 },
+    );
   try {
     checkOrigin(request);
     const body = await request.json();

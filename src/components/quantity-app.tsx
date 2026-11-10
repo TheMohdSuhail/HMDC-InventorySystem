@@ -242,7 +242,7 @@ export default function QuantityApp() {
         { name: "Sales", icon: ShoppingCart },
         { name: "Orders", icon: Receipt },
         { name: "Inventory", icon: Package },
-        ...(admin ? [{ name: "Team", icon: UserPlus }] : []),
+        ...(admin || branch ? [{ name: "Team", icon: UserPlus }] : []),
         ...(admin ? [{ name: "Branches", icon: Users }] : []),
         ...(admin ? [{ name: "Production", icon: Factory }] : []),
         { name: "Operations", icon: ClipboardList },
@@ -708,7 +708,7 @@ export default function QuantityApp() {
             />
           )}
           {safePage === "Orders" && <OrdersPage data={data} saved={load} />}
-          {safePage === "Team" && admin && <TeamPage data={data} saved={load} />}
+          {safePage === "Team" && (admin || branch) && <TeamPage data={data} saved={load} />}
           {safePage === "Inventory" && (
             <>
               {admin && (

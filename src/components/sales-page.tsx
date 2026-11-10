@@ -40,6 +40,9 @@ export type Order = Data["orders"][number];
 type Status = { kind: "ok" | "error" | "info"; text: string } | null;
 
 const CENTRAL = "CENTRAL";
+/** The scanned text "Next Row" (any case or spacing) means: go to the next order. */
+const isNextRow = (value: string) =>
+  /^next[\s_-]*(row|order)$/i.test(value.trim());
 export const fmt = (v: unknown) =>
   Number(String(v ?? 0)).toLocaleString("en-IN", { maximumFractionDigits: 3 });
 export const when = (s: string) =>
@@ -231,8 +234,12 @@ export function SalesPage({
     if (activeNo) codeRef.current?.focus();
   }, [activeNo]);
 
-  /** Validates the order ID, loads it if it exists, then moves to the product box. */
-  async function openOrder(raw: string) {
+  /**
+   * Validates the order ID and moves to the product box. An ID that is already
+   * saved is a duplicate entry unless it was opened on purpose (`reopen`).
+   */
+  async function openOrder(raw: string, reopen = false) {
+    if (isNextRow(raw)) return newOrder();
     const no = normalizeOrderNo(raw);
     if (!no) return;
     const prefix = orderPrefix(no);
@@ -262,6 +269,17 @@ export function SalesPage({
         "GET",
         `/api/orders?no=${encodeURIComponent(no)}`,
       )) as { order: Order | null };
+      if (order && !reopen) {
+        beep(false);
+        const text = `Duplicate entry: order ${no} is already saved (${statusLabel(order.status)}, ${order.items.length} products, ${when(order.createdAt)}). Use Open on that order to add more products.`;
+        setStatus({ kind: "error", text });
+        toast.error(text, { duration: 8000 });
+        setCode("");
+        // Stay on the order being scanned, if any; otherwise ask for another ID.
+        if (activeRef.current) codeRef.current?.focus();
+        else orderRef.current?.select();
+        return;
+      }
       setCurrent(order);
       setActiveNo(no);
       setOrderInput(no);
@@ -295,6 +313,14 @@ export function SalesPage({
     setCode("");
     codeRef.current?.focus();
     if (!value) return;
+    // A "Next Row" barcode finishes this order, same as the Next order button.
+    if (isNextRow(value)) {
+      beep(true);
+      setQty("1");
+      newOrder();
+      if (camera) setCamera("order");
+      return;
+    }
     // "12*barcode" adds 12 pieces; otherwise use the Qty box.
     let pieces = qty.trim() || "1";
     const multi = /^(\d{1,9}(?:\.\d{1,3})?)\s*\*\s*(.+)$/.exec(value);
@@ -410,7 +436,7 @@ export function SalesPage({
 
   function openInScanner(order: Order) {
     setOrderInput(order.orderNo);
-    void openOrder(order.orderNo);
+    void openOrder(order.orderNo, true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -504,9 +530,8 @@ export function SalesPage({
         </div>
         {!data.team.length && (
           <p className="error" role="alert">
-            {admin
-              ? "Add team members on the Team page first. Order IDs must start with a team member's code."
-              : "No team members yet. Ask admin to add team members and their codes."}
+            Add team members on the Team page first. Order IDs must start with a
+            team member&apos;s code.
           </p>
         )}
         <div className="form-grid sales-inputs">
@@ -617,7 +642,7 @@ export function SalesPage({
             <span className="small muted">
               {pending
                 ? `Saving ${pending}…`
-                : "Set Qty first for many pieces (or type 12*barcode). Scanning the next order ID starts a new order. Esc = new order."}
+                : "Set Qty first for many pieces (or type 12*barcode). Scan \"Next Row\" or the next order ID to start a new order. Esc = new order."}
             </span>
           </label>
         </div>
@@ -734,6 +759,7 @@ export function SalesPage({
       )}
       {camera && (
         <Scanner
+          key={camera}
           actionLabel={camera === "order" ? "Use order ID" : "Add product"}
           continuous={camera === "product"}
           onScan={(value) => {
@@ -987,7 +1013,7 @@ export function TeamPage({
     <section className="panel">
       <div className="section-head">
         <h2>Sales team</h2>
-        <span className="tag">Admin only</span>
+        <span className="tag">Shared by warehouse and branches</span>
       </div>
       <p className="small muted">
         Each team member gets a short letter code. Order IDs start with that

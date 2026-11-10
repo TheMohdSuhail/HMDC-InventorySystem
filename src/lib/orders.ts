@@ -356,8 +356,12 @@ export async function deleteOrder(raw: unknown, user: Actor) {
   return updateOrder({ id, orderNo: order.orderNo, items: [] }, user);
 }
 
+/** The sales team is one shared list; admins and branch managers both maintain it. */
+const canManageTeam = (user: Actor) =>
+  ["ADMIN", "BRANCH_MANAGER"].includes(user.role);
+
 export async function saveTeamMember(raw: unknown, user: Actor) {
-  ensure(user.role === "ADMIN", "Admin access is required");
+  ensure(canManageTeam(user), "Admin or branch access is required");
   const input = teamSchema.parse(raw);
   return run(async (tx) => {
     if (input.id) {
@@ -529,7 +533,7 @@ export async function listOrders(raw: unknown, user: Actor) {
 
 /** Deletes a team member who has no orders; members with orders must be disabled instead. */
 export async function deleteTeamMember(raw: unknown, user: Actor) {
-  ensure(user.role === "ADMIN", "Admin access is required");
+  ensure(canManageTeam(user), "Admin or branch access is required");
   const { id } = deleteSchema.parse(raw);
   return run(async (tx) => {
     const member = await tx.teamMember.findUnique({ where: { id } });
@@ -584,7 +588,6 @@ export async function salesWorkspace(tx: Tx, user: Actor) {
   type Row = { teamMemberId: string; orders: bigint; pieces: unknown; returned?: bigint };
   const [team, orders, summary, todayRows, statuses, week] = await Promise.all([
     tx.teamMember.findMany({
-      where: admin ? {} : { active: true },
       select: { id: true, name: true, code: true, phone: true, active: true },
       orderBy: { code: "asc" },
     }),
