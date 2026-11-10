@@ -218,7 +218,7 @@ export async function reports(params: URLSearchParams) {
           sellableReturns: sum(["CUSTOMER_RETURN"]),
           saleReversals: sum(["SALE_REVERSAL"]),
           writeOffs: sum(lossTypes),
-          otherAdjustments: sum(["OPENING", "RECOVERY", "CORRECTION_IN"]),
+          otherAdjustments: sum(["OPENING", "RECOVERY", "CORRECTION_IN", "ADJUSTMENT"]),
           closing: all
             .reduce((s, m) => s.plus(m.quantity.toString()), D(0))
             .toString(),

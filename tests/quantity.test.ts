@@ -21,6 +21,7 @@ describe("quantity role boundaries", () => {
       "RECEIVE",
       "LOSS",
       "STOCK_IN",
+      "MFG_RETURN",
     ]) {
       expect(() =>
         authorizeQuantity(

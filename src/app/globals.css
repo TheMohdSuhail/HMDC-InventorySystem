@@ -172,6 +172,9 @@ h3 {
   flex-direction: column;
   padding: 30px 18px;
   z-index: 20;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 .brand {
   font-weight: 750;
@@ -1027,4 +1030,336 @@ textarea:focus {
     max-width: calc(100vw - 20px);
     padding: 18px;
   }
+}
+
+/* Sales entry (scan order ID, then products) */
+.sales-inputs {
+  align-items: start;
+  margin-top: 16px;
+}
+.scan-field {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+}
+.scan-field .scan-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  padding: 12px 14px;
+}
+.scan-input:focus {
+  outline: 3px solid var(--green);
+  outline-offset: 1px;
+}
+.sales-status {
+  margin: 16px 0 4px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--soft);
+  font-weight: 600;
+}
+.sales-status.ok {
+  border-color: var(--green);
+  color: var(--green);
+}
+.sales-status.error {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--surface);
+}
+.sales-current {
+  margin-top: 18px;
+}
+.qty-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.danger.icon-button {
+  background: var(--danger);
+  color: white;
+  border-color: transparent;
+}
+.sales-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(280px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.sales-recent h2 {
+  margin-bottom: 16px;
+}
+.sales-recent .section-head {
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 0;
+}
+@media (max-width: 1100px) {
+  .sales-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+}
+.recent-orders {
+  display: grid;
+  gap: 12px;
+}
+.recent-order {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  background: var(--surface);
+}
+.recent-order ul {
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+.recent-order .actions button {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  padding: 6px 10px;
+}
+
+/* Branches page */
+.branch-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.branch-search {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 280px;
+  max-width: 460px;
+  margin: 0;
+  color: var(--muted);
+}
+.branch-search input {
+  flex: 1;
+  min-width: 0;
+}
+.branch-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+}
+.branch-card {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--surface);
+}
+.branch-card.disabled {
+  opacity: 0.7;
+}
+.branch-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+.branch-title {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+}
+.branch-title strong {
+  overflow-wrap: anywhere;
+}
+.branch-head .actions button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.branch-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 14px 0 6px;
+}
+.branch-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--soft);
+}
+.branch-stats strong {
+  font-size: 1.25rem;
+}
+.link-button {
+  background: none;
+  border: none;
+  padding: 6px 0;
+  color: var(--green);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Order status and search */
+.status-placed {
+  background: var(--soft);
+  color: var(--green);
+}
+.status-dispatched {
+  background: #e7eefb;
+  color: #2b5aa8;
+}
+.status-delivered {
+  background: var(--green);
+  color: #fff;
+}
+.status-returned {
+  background: #fdf0dc;
+  color: #8a5a00;
+}
+.status-damaged {
+  background: #f3e6f7;
+  color: #7a2f8f;
+}
+.status-cancelled {
+  background: #f6e3e1;
+  color: var(--danger);
+}
+.order-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+.order-actions label {
+  margin: 0;
+}
+.order-search {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 12px 0 16px;
+}
+.order-search select {
+  flex: 0 1 200px;
+}
+
+/* Sales dashboard */
+.dashboard-split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  gap: 20px;
+}
+.dashboard-split > .panel {
+  min-width: 0;
+}
+.chart-value {
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+/* Quantity with scans */
+.scan-field .qty-input {
+  flex: 0 0 84px;
+  width: 84px;
+  text-align: center;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+.line-qty {
+  width: 80px;
+  text-align: center;
+  font-weight: 600;
+}
+.sales-inputs .product-field {
+  grid-column: 1 / -1;
+}
+@media (max-width: 700px) {
+  .sales-inputs {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .scan-field .qty-input {
+    flex-basis: 64px;
+    width: 64px;
+  }
+}
+
+/* Orders page */
+.order-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.order-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: inherit;
+  font-weight: 600;
+}
+.order-tabs button.selected {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+.order-tabs .count {
+  font-size: 12px;
+  opacity: 0.75;
+}
+.order-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+.order-filters label {
+  margin: 0;
+  flex: 0 1 170px;
+}
+.order-filters .branch-search {
+  flex: 1 1 240px;
+}
+.orders-table td {
+  vertical-align: top;
+}
+.orders-table ul {
+  margin: 0;
+  padding-left: 16px;
+}
+.orders-table select {
+  min-width: 130px;
+}
+.order-pager {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+}
+
+/* Production page */
+.production-steps {
+  margin: 0 0 16px;
+  padding-left: 20px;
 }

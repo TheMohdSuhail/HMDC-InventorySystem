@@ -26,6 +26,8 @@ export const quantitySchema = z.object({
     "DISPOSE_DAMAGED",
     "DISPOSE_EXPIRED",
     "DISPOSE_QUARANTINED",
+    // Warehouse sends stock (any condition) back to a manufacturer; ownerId is the manufacturer.
+    "MFG_RETURN",
   ]),
   ownerId: z.string().min(1).max(191).default(CENTRAL),
   sourceId: z.string().max(191).optional(),
@@ -139,6 +141,14 @@ export async function executeQuantity(raw: unknown, user: Actor) {
               owner?.active && owner.role === "BRANCH_MANAGER",
               "Choose an active branch manager",
             );
+          } else if (input.type === "MFG_RETURN") {
+            const owner = await tx.user.findUnique({
+              where: { id: input.ownerId },
+            });
+            ensure(
+              owner?.active && owner.role === "MANUFACTURER",
+              "Choose an active manufacturer",
+            );
           } else if (!["READY", "DISPATCH", "RECEIVE"].includes(input.type)) {
             ensure(
               input.ownerId === CENTRAL,
@@ -206,6 +216,7 @@ export async function executeQuantity(raw: unknown, user: Actor) {
                   "DISPOSE_DAMAGED",
                   "DISPOSE_EXPIRED",
                   "DISPOSE_QUARANTINED",
+                  "MFG_RETURN",
                 ].includes(input.type),
               "Product is archived",
             );
@@ -370,6 +381,16 @@ export async function executeQuantity(raw: unknown, user: Actor) {
               case "DISPOSE_QUARANTINED":
                 if (input.ownerId === CENTRAL) await central(-1, "quarantined");
                 else await location(input.ownerId, -1, "quarantined");
+                break;
+              case "MFG_RETURN":
+                // Leaves the chosen warehouse bucket; the manufacturer holds no balance for it.
+                await central(
+                  -1,
+                  input.condition === "SELLABLE"
+                    ? "stock"
+                    : (input.condition.toLowerCase() as
+                        "damaged" | "expired" | "quarantined"),
+                );
                 break;
             }
             await tx.quantityLine.create({

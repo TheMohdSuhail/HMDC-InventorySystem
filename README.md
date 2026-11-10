@@ -71,7 +71,8 @@ Create accounts through **Settings > Account management**, selecting Admin, Bran
 1. Admin registers products under **Inventory**, measured in `pcs` for manufacturing. If a product is missing, a manufacturer can add its name and optional SKU, barcode and category from **Production**; admin can complete other catalog details later.
 2. Manufacturer records **Ready products**: `total pieces = boxes ? pieces per box + loose pieces`. This increases only their ready stock.
 3. Manufacturer dispatches ready pieces. Their ready balance decreases; the dispatch remains in transit.
-4. Admin selects that dispatch under **Receive manufacturer dispatch** and confirms all or part. Only confirmed pieces enter central inventory. Overreceiving is blocked.
+4. Admin opens **Production**, where each dispatch is listed under **Waiting to be received**: **Receive all** takes the whole delivery in one step, **Receive part** confirms only some pieces. Only confirmed pieces enter central inventory. Overreceiving is blocked.
+   - **Send stock to manufacturer** sends warehouse stock back to a manufacturer. Choose the stock type (good, damaged, expired, or on hold / other); the pieces leave that warehouse balance and the manufacturer sees the delivery on their Production page. The manufacturer's ready stock does not change.
 5. Admin uses **Branches > Assign stock in bulk** to transfer central stock to a branch manager. Central stock decreases and branch stock increases atomically.
 6. Branch manager sells or returns against their own stock. Admin may also record operations for central or a chosen branch. Returns must reference the original sale and cannot exceed its remaining quantity. Return condition controls sellable/damaged/expired/quarantined balances.
 7. Admin can transfer unused sellable branch stock back to central. Admin releases inspected quarantine or disposes unusable stock in central or a chosen branch.
@@ -85,6 +86,14 @@ All stock forms accept multiple products (up to 100 in the UI, 200 in the quanti
 For new products, **Inventory > Bulk import Excel** accepts first-sheet XLSX values, up to 200 products / 2 MB. Only `name` is required. Optional fields include `sku`, `barcode`, `category`, `unit`, `expiryDate`, `minStock`, `openingQuantity`, `notes`, `active`. Opening quantity goes to central inventory and is recorded in its ledger. Prices are not required; legacy price columns are ignored. Excel barcode/SKU columns must be Text to preserve leading zeros. Formulas and numeric barcode/SKU cells are rejected. Use YYYY-MM-DD for expiry dates; Excel date cells are also accepted. Older XLS files must be saved as XLSX.
 
 **Scan products** queues unknown barcodes for catalog creation; repeat scans increase opening quantity. Fill product names and details, validate and confirm. Existing product barcodes belong in stock-operation forms instead. Both imports and scanner queues are atomic, with duplicate identifier validation before saving.
+
+### Sales team and scan-based sales (10 November 2026)
+
+Admin adds salespeople under **Team** with a letter code (e.g. `TRL`). Order IDs are that code followed by numbers (`TRL1023`, `TRL-1023`), so each order is tied to its salesperson.
+
+On **Sales**, type or scan the order ID and press Enter; the cursor moves to the product box. Each product scan (barcode, SKU or exact name + Enter) saves immediately and deducts one piece from stock — no save button. Scanning another order ID in the product box starts the next order; Esc clears. The current order's lines have +/−/remove controls, and the last three orders have **Edit** (order ID and quantities) and **Delete** (returns stock). Admin picks central warehouse or a branch; branch managers sell from their own stock. **Download orders Excel** exports every order with salesperson code.
+
+Orders live in `SalesOrder`/`SalesOrderItem` (migration `202611100001_sales_orders`). Central stock changes are written to the StockMovement ledger as type `ORDER`; branch order lines are included in `npm run db:check`.
 
 ### Expiry dates
 

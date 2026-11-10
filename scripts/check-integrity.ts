@@ -104,6 +104,30 @@ async function main() {
               D(item.quantity).neg().toString(),
             );
         }
+      // Branch sales orders deduct directly from location balances.
+      const orderItems = await tx.salesOrderItem.findMany({
+        where: {
+          order: {
+            ownerId: { not: "CENTRAL" },
+            status: { in: ["PLACED", "DISPATCHED", "DELIVERED"] },
+          },
+        },
+        include: { order: { select: { ownerId: true } } },
+      });
+      for (const item of orderItems)
+        add(
+          item.order.ownerId,
+          item.productId,
+          "quantity",
+          D(item.quantity).neg().toString(),
+        );
+      // Damaged branch orders hold their products in the branch damaged balance.
+      const damagedItems = await tx.salesOrderItem.findMany({
+        where: { order: { ownerId: { not: "CENTRAL" }, status: "DAMAGED" } },
+        include: { order: { select: { ownerId: true } } },
+      });
+      for (const item of damagedItems)
+        add(item.order.ownerId, item.productId, "damaged", item.quantity.toString());
       for (const balance of balances)
         for (const bucket of [
           "quantity",

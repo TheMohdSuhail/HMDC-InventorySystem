@@ -22,6 +22,9 @@ import {
   X,
   Trash2,
   RefreshCw,
+  Receipt,
+  ShoppingCart,
+  UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import Accounts from "./accounts";
@@ -38,6 +41,11 @@ import {
   type InventoryFilters,
 } from "@/lib/filters";
 import DashboardInsights from "./dashboard-insights";
+import { SalesPage, TeamPage } from "./sales-page";
+import BranchesPage from "./branches-page";
+import OrdersPage from "./orders-page";
+import ProductionPage, { CONDITION_LABELS } from "./production-page";
+import SalesDashboard from "./sales-dashboard";
 import type { Workspace } from "@/lib/workspace";
 import type { QuantityInput } from "@/lib/quantity";
 import { D } from "@/lib/math";
@@ -72,6 +80,7 @@ const titles: Record<Mode, string> = {
   DISPOSE_DAMAGED: "Permanently remove damaged stock",
   DISPOSE_EXPIRED: "Permanently remove expired stock",
   DISPOSE_QUARANTINED: "Permanently remove held stock",
+  MFG_RETURN: "Send stock to manufacturer",
   PURCHASE: "Create purchase order",
   PO_RECEIVE: "Receive stock from supplier",
   LEGACY_RETURN: "Record return from old sales records",
@@ -93,6 +102,7 @@ const confirmLabels: Record<Mode, string> = {
   DISPOSE_DAMAGED: "Permanently remove damaged stock",
   DISPOSE_EXPIRED: "Permanently remove expired stock",
   DISPOSE_QUARANTINED: "Permanently remove held stock",
+  MFG_RETURN: "Confirm stock sent to manufacturer",
   PURCHASE: "Save purchase order",
   PO_RECEIVE: "Confirm receipt from supplier",
   LEGACY_RETURN: "Save return from old sales records",
@@ -163,6 +173,9 @@ export default function QuantityApp() {
     inventoryFilterReducer, initialInventoryFilterState,
   );
   const [mode, setMode] = useState<Mode | null>(null);
+  const [modeOwner, setModeOwner] = useState<string | undefined>();
+  const [modeSource, setModeSource] = useState<string | undefined>();
+  const [salesQuery, setSalesQuery] = useState("");
   const [product, setProduct] = useState<Product | "new" | null>(null);
   const [manufacturerProduct, setManufacturerProduct] = useState(false);
   const [supplier, setSupplier] = useState(false);
@@ -226,7 +239,10 @@ export default function QuantityApp() {
     ? [{ name: "Production", icon: Factory }]
     : [
         { name: "Dashboard", icon: LayoutDashboard },
+        { name: "Sales", icon: ShoppingCart },
+        { name: "Orders", icon: Receipt },
         { name: "Inventory", icon: Package },
+        ...(admin ? [{ name: "Team", icon: UserPlus }] : []),
         ...(admin ? [{ name: "Branches", icon: Users }] : []),
         ...(admin ? [{ name: "Production", icon: Factory }] : []),
         { name: "Operations", icon: ClipboardList },
@@ -426,12 +442,22 @@ export default function QuantityApp() {
                 {admin && (
                   <>
                     <td>
-                      <button
-                        className="secondary"
-                        onClick={() => setProduct(p)}
-                      >
-                        Edit product
-                      </button>
+                      <div className="actions">
+                        <button
+                          className="secondary"
+                          onClick={() => setProduct(p)}
+                        >
+                          Edit product
+                        </button>
+                        <button
+                          className="danger icon-button"
+                          aria-label={`Delete ${p.name}`}
+                          title="Delete product"
+                          onClick={() => void removeProduct(p, load)}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
                     </td>
                   </>
                 )}
@@ -476,7 +502,7 @@ export default function QuantityApp() {
                   <div className="small muted">{e.id}</div>
                 </td>
                 <td>
-                  {e.type === "QUARANTINED" ? "On hold" : e.type === "DISPOSE_QUARANTINED" ? "Permanently remove held stock" : e.type.replaceAll("_", " ")}
+                  {e.type === "MFG_RETURN" ? `Sent to manufacturer (${CONDITION_LABELS[e.condition] ?? e.condition})` : e.type === "QUARANTINED" ? "On hold" : e.type === "DISPOSE_QUARANTINED" ? "Permanently remove held stock" : e.type.replaceAll("_", " ")}
                   {e.type === "RETURN" && (
                     <div className="small muted">{e.condition === "QUARANTINED" ? "On hold" : e.condition}</div>
                   )}
@@ -530,6 +556,7 @@ export default function QuantityApp() {
                 setPage(n.name);
                 location.hash = encodeURIComponent(n.name);
                 setSearch("");
+                setSalesQuery("");
               }}
             >
               <n.icon size={18} />
@@ -633,13 +660,35 @@ export default function QuantityApp() {
                     : manufacturer
                       ? ["READY", "DISPATCH"]
                       : ["SALE", "RETURN", "LOSS"]
-                  ).map((t) => (
-                    <button key={t} onClick={() => setMode(t as Mode)}>
-                      {titles[t as Mode]}
-                    </button>
-                  ))}
+                  ).map((t) =>
+                    t === "SALE" ? (
+                      <button
+                        key={t}
+                        onClick={() => {
+                          setPage("Sales");
+                          location.hash = "Sales";
+                        }}
+                      >
+                        New Sale entry
+                      </button>
+                    ) : (
+                      <button key={t} onClick={() => setMode(t as Mode)}>
+                        {titles[t as Mode]}
+                      </button>
+                    ),
+                  )}
                 </div>
               </section>
+              {!manufacturer && (
+                <SalesDashboard
+                  data={data}
+                  openSales={(q) => {
+                    setSalesQuery(q || "");
+                    setPage("Sales");
+                    location.hash = "Sales";
+                  }}
+                />
+              )}
               <DashboardInsights
                 data={{ ...data, products: dashboardProducts }}
               />
@@ -650,6 +699,16 @@ export default function QuantityApp() {
               </section>
             </>
           )}
+          {safePage === "Sales" && (
+            <SalesPage
+              key={salesQuery}
+              data={data}
+              saved={load}
+              initialQuery={salesQuery}
+            />
+          )}
+          {safePage === "Orders" && <OrdersPage data={data} saved={load} />}
+          {safePage === "Team" && admin && <TeamPage data={data} saved={load} />}
           {safePage === "Inventory" && (
             <>
               {admin && (
@@ -677,110 +736,25 @@ export default function QuantityApp() {
             </>
           )}
           {safePage === "Branches" && admin && (
-            <>
-              <div className="actions quantity-actions">
-                <button onClick={() => setMode("ASSIGN")}>
-                  Send stock to branch
-                </button>
-                <button
-                  className="secondary"
-                  onClick={() => setMode("BRANCH_RETURN")}
-                >
-                  Return branch stock to warehouse
-                </button>
-                <button
-                  className="secondary"
-                  onClick={() => setPage("Settings")}
-                >
-                  Manage accounts
-                </button>
-              </div>
-              <section className="panel">
-                <h2>Branch inventory</h2>
-                {data.users
-                  .filter((u) => u.role === "BRANCH_MANAGER")
-                  .map((u) => (
-                    <div className="activity-row" key={u.id}>
-                      <div>
-                        <strong>{u.email}</strong>
-                        {!u.active && " (disabled)"}
-                        {data.balances
-                          .filter((b) => b.ownerId === u.id)
-                          .map((b) => (
-                            <p key={b.productId}>
-                              {names(b.productId)}: {fmt(b.quantity)}
-                            </p>
-                          ))}
-                      </div>
-                    </div>
-                  ))}
-              </section>
-            </>
+            <BranchesPage
+              data={data}
+              saved={load}
+              operate={(m, ownerId) => {
+                setModeOwner(ownerId);
+                setMode(m);
+              }}
+            />
           )}
           {safePage === "Production" && (
-            <>
-              <div className="actions quantity-actions">
-                {manufacturer ? (
-                  <>
-                    <button
-                      className="secondary"
-                      onClick={() => setManufacturerProduct(true)}
-                    >
-                      Enter new product details
-                    </button>
-                    <button onClick={() => setMode("READY")}>
-                      Record finished stock
-                    </button>
-                    <button
-                      className="secondary"
-                      onClick={() => setMode("DISPATCH")}
-                    >
-                      Send stock to warehouse
-                    </button>
-                  </>
-                ) : (
-                  <button onClick={() => setMode("RECEIVE")}>
-                    Receive stock from manufacturer
-                  </button>
-                )}
-              </div>
-              <section className="panel">
-                <h2>
-                  {manufacturer
-                    ? "Production entries"
-                    : "Manufacturing inventory and transit"}
-                </h2>
-                {manufacturer ? (
-                  <p className="small muted">
-                    Record finished products and dispatch quantities here. Admin
-                    confirms each dispatch; inventory balances and submission
-                    history are not shown.
-                  </p>
-                ) : (
-                  <>
-                    {data.users
-                      .filter((u) => u.role === "MANUFACTURER")
-                      .map((u) => (
-                        <p key={u.id}>
-                          <strong>{u.email}</strong> —{" "}
-                          {data.balances
-                            .filter((b) => b.ownerId === u.id)
-                            .map(
-                              (b) =>
-                                `${names(b.productId)}: ${fmt(b.quantity)} ready`,
-                            )
-                            .join(", ") || "No ready stock"}
-                        </p>
-                      ))}
-                    {history(
-                      data.events.filter((e) =>
-                        ["READY", "DISPATCH", "RECEIVE"].includes(e.type),
-                      ),
-                    )}
-                  </>
-                )}
-              </section>
-            </>
+            <ProductionPage
+              data={data}
+              saved={load}
+              addProduct={() => setManufacturerProduct(true)}
+              operate={(m, preset) => {
+                setModeSource(preset?.sourceId);
+                setMode(m);
+              }}
+            />
           )}
           {safePage === "Operations" && (
             <>
@@ -1006,7 +980,13 @@ export default function QuantityApp() {
         <BatchForm
           data={data}
           mode={mode}
-          close={() => setMode(null)}
+          initialOwner={modeOwner}
+          initialSource={modeSource}
+          close={() => {
+            setMode(null);
+            setModeOwner(undefined);
+            setModeSource(undefined);
+          }}
           saved={load}
         />
       )}
@@ -1130,6 +1110,26 @@ function ManufacturerProductForm({
   );
 }
 
+async function removeProduct(p: Product, saved: () => Promise<void>) {
+  if (
+    !confirm(
+      `Permanently delete "${p.name}"? This cannot be undone.
+
+Only products that were never sold or transferred can be deleted.`,
+    )
+  )
+    return false;
+  try {
+    await post("/api/data", { action: "deleteProduct", id: p.id });
+    await saved();
+    toast.success(`Deleted ${p.name}`);
+    return true;
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : String(e), { duration: 8000 });
+    return false;
+  }
+}
+
 function ProductForm({
   product,
   close,
@@ -1166,6 +1166,7 @@ function ProductForm({
                 barcode,
                 active: fd.get("active") === "on",
               },
+              stock: fd.get("stock"),
             });
             await saved();
             close();
@@ -1230,6 +1231,23 @@ function ProductForm({
           >
             Fill barcode using camera
           </button>
+          <label>
+            {p ? "Warehouse quantity (central)" : "Opening quantity (central)"}
+            <input
+              name="stock"
+              type="number"
+              min="0"
+              step="0.001"
+              defaultValue={p ? String(Number(p.stock ?? 0)) : "0"}
+            />
+            {p && (
+              <span className="small muted">
+                Changing this records a stock correction. Damaged{" "}
+                {fmt(p.damaged)} · Expired {fmt(p.expired)} · On hold{" "}
+                {fmt(p.quarantined)} are not changed here.
+              </span>
+            )}
+          </label>
           <label className="check-label">
             <input
               name="active"
@@ -1239,7 +1257,23 @@ function ProductForm({
             Active product
           </label>
         </div>
-        <button disabled={busy}>{busy ? "Saving…" : p ? "Save product changes" : "Create product"}</button>
+        <div className="actions">
+          <button disabled={busy}>{busy ? "Saving…" : p ? "Save product changes" : "Create product"}</button>
+          {p && (
+            <button
+              type="button"
+              className="danger"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                if (await removeProduct(p, saved)) close();
+                else setBusy(false);
+              }}
+            >
+              <Trash2 size={15} /> Delete product
+            </button>
+          )}
+        </div>
       </form>
       {camera && (
         <Scanner
@@ -1267,14 +1301,20 @@ function BatchForm({
   mode,
   close,
   saved,
+  initialOwner,
+  initialSource,
 }: {
   data: Data;
   mode: Mode;
   close: () => void;
   saved: () => Promise<void>;
+  initialOwner?: string;
+  initialSource?: string;
 }) {
   const packing = mode === "READY" || mode === "DISPATCH";
   const manufacturer = data.user.role === "MANUFACTURER";
+  const toMaker = mode === "MFG_RETURN";
+  const makers = data.users.filter((u) => u.role === "MANUFACTURER" && u.active);
   const [rows, stateRows] = useState<Row[]>([]),
     queue = useRef<Row[]>([]);
   const setRows = (next: Row[]) => {
@@ -1284,11 +1324,17 @@ function BatchForm({
   const [ownerId, setOwner] = useState(
     packing || data.user.role === "BRANCH_MANAGER"
       ? data.user.id
-      : ["ASSIGN", "BRANCH_RETURN"].includes(mode)
-        ? ""
-        : "CENTRAL",
+      : initialOwner
+        ? initialOwner
+        : toMaker
+          ? makers.length === 1
+            ? makers[0].id
+            : ""
+          : ["ASSIGN", "BRANCH_RETURN"].includes(mode)
+            ? ""
+            : "CENTRAL",
   );
-  const [sourceId, setSource] = useState(""),
+  const [sourceId, setSource] = useState(initialSource ?? ""),
     [supplierId, setSupplier] = useState(""),
     [barcode, setBarcode] = useState("");
   const [camera, setCamera] = useState(false),
@@ -1298,6 +1344,11 @@ function BatchForm({
   const [addingProduct, setAddingProduct] = useState(false);
   const [key] = useState(() => crypto.randomUUID());
   const [condition, setCondition] = useState("SELLABLE");
+  // Warehouse bucket that stock sent to a manufacturer comes out of.
+  const makerBucket =
+    condition === "SELLABLE"
+      ? "stock"
+      : (condition.toLowerCase() as "damaged" | "expired" | "quarantined");
   const input = useRef<HTMLInputElement>(null);
   const branches = data.users.filter(
     (u) => u.role === "BRANCH_MANAGER" && u.active,
@@ -1328,7 +1379,9 @@ function BatchForm({
                 i.productId === p.id &&
                 Number(i.quantity) > Number(i.processed),
             )
-      : p.active,
+      : toMaker
+        ? Number(p[makerBucket]) > 0
+        : p.active,
   );
   const sourceEvents = data.events.filter(
     (e) =>
@@ -1611,6 +1664,45 @@ function BatchForm({
           </button>
         )}
         <div className="form-grid">
+          {toMaker && (
+            <label>
+              Manufacturer
+              <select
+                required
+                value={ownerId}
+                onChange={(e) => {
+                  setOwner(e.target.value);
+                  setConfirmed(false);
+                }}
+              >
+                <option value="">Choose manufacturer</option>
+                {makers.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.email}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {toMaker && (
+            <label>
+              Stock type to send
+              <select
+                value={condition}
+                onChange={(e) => {
+                  setCondition(e.target.value);
+                  setRows([]);
+                  setConfirmed(false);
+                }}
+              >
+                {Object.entries(CONDITION_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           {["RETURN", "LEGACY_RETURN"].includes(mode) && (
             <label>
               Return condition
@@ -1810,7 +1902,9 @@ function BatchForm({
                   old = oldSale?.items.find((i) => i.productId === p.id);
                 const stockBucket:
                   "stock" | "damaged" | "expired" | "quarantined" =
-                  mode === "RELEASE"
+                  toMaker
+                    ? makerBucket
+                    : mode === "RELEASE"
                     ? "quarantined"
                     : mode.startsWith("DISPOSE_")
                       ? (mode.slice(8).toLowerCase() as
@@ -1822,7 +1916,7 @@ function BatchForm({
                     ? Number(poi.quantity) - Number(poi.received)
                     : old
                       ? Number(old.quantity) - Number(old.returned)
-                      : ownerId === "CENTRAL"
+                      : ownerId === "CENTRAL" || toMaker
                         ? p[stockBucket]
                         : data.balances.find(
                             (b) =>
@@ -1896,7 +1990,11 @@ function BatchForm({
           </table>
         </div>
         {!rows.length && (
-          <p className="empty">Scan or select products to start your batch.</p>
+          <p className="empty">
+            {toMaker && !available.length
+              ? `The warehouse has no ${CONDITION_LABELS[condition].toLowerCase()} to send.`
+              : "Scan or select products to start your batch."}
+          </p>
         )}
         {error && (
           <p className="error" role="alert">

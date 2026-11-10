@@ -14,7 +14,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:integration": "node --env-file=.env node_modules/vitest/vitest.mjs run tests/inventory.integration.test.ts tests/buckets.integration.test.ts tests/product-import.integration.test.ts tests/quantity.integration.test.ts tests/batch.integration.test.ts",
+    "test:integration": "node --env-file=.env node_modules/vitest/vitest.mjs run tests/inventory.integration.test.ts tests/buckets.integration.test.ts tests/product-import.integration.test.ts tests/quantity.integration.test.ts tests/batch.integration.test.ts tests/orders.integration.test.ts tests/product-delete.integration.test.ts",
     "test:browser": "node --env-file=.env --import tsx scripts/e2e.ts",
     "test:prepare": "node --env-file=.env --import tsx scripts/prepare-test-db.ts",
     "db:generate": "prisma generate",

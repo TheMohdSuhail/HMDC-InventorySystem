@@ -13,6 +13,8 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { authorizeOperation } from "@/lib/permissions";
 import { InventoryError } from "@/lib/errors";
+import { D } from "@/lib/math";
+import { deleteProduct } from "@/lib/product-delete";
 export const dynamic = "force-dynamic";
 export async function GET() {
   try {
@@ -24,7 +26,10 @@ export async function GET() {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (e) {
-    console.error("Data load failed", e instanceof Error ? e.name : "error");
+    console.error(
+      "Data load failed",
+      e instanceof Error ? `${e.name}: ${e.message}\n${e.stack ?? ""}` : e,
+    );
     return NextResponse.json(
       { error: "Database unavailable. Verify configuration and migrations." },
       { status: 503 },
@@ -68,6 +73,12 @@ export async function POST(request: Request) {
         }
       }
       const id = z.string().max(64).optional().parse(body.id);
+      // Optional absolute central quantity; the difference is written to the ledger.
+      const stock = z
+        .string()
+        .regex(/^\d{1,9}(\.\d{1,3})?$/, "Quantity: use a number with up to 3 decimals")
+        .optional()
+        .parse(body.stock === "" || body.stock == null ? undefined : String(body.stock));
       const result = await db.$transaction(async (tx) => {
         const minStock =
           values.minStock ??
@@ -89,17 +100,38 @@ export async function POST(request: Request) {
         const p = id
           ? await tx.product.update({ where: { id }, data })
           : await tx.product.create({ data });
+        const delta = stock === undefined ? D(0) : D(stock).minus(p.stock);
+        if (!delta.isZero()) {
+          await tx.product.update({ where: { id: p.id }, data: { stock } });
+          await tx.stockMovement.create({
+            data: {
+              productId: p.id,
+              type: id ? "ADJUSTMENT" : "OPENING",
+              bucket: "SELLABLE",
+              quantity: delta.toString(),
+              unitCost: p.averageCost,
+              reference: p.id,
+              reason: id
+                ? `Quantity set to ${stock} in product edit`
+                : "Opening quantity",
+            },
+          });
+        }
         await tx.auditLog.create({
           data: {
             action: id ? "PRODUCT_EDIT" : "PRODUCT_CREATE",
             reference: p.id,
             actorId: user.id,
-            detail: JSON.stringify(data),
+            detail: JSON.stringify({ ...data, stock }),
           },
         });
         return { id: p.id };
       });
       return NextResponse.json(result);
+    }
+    if (body.action === "deleteProduct") {
+      const id = z.string().min(1).max(64).parse(body.id);
+      return NextResponse.json(await deleteProduct(id, user.id));
     }
     if (body.action === "supplier") {
       const values = supplierSchema.parse(body.data);

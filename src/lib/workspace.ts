@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { CENTRAL, type Actor } from "./quantity";
 import { InventoryError } from "./errors";
+import { salesWorkspace } from "./orders";
 
 export const catalogSelect = {
   id: true,
@@ -44,10 +45,13 @@ export async function workspace(user: Actor) {
         },
         orderBy: { name: "asc" },
       });
-      const events = manufacturer
-        ? []
-        : await tx.quantityEvent.findMany({
-            where: admin ? {} : { ownerId: user.id },
+      // Manufacturers see only what the warehouse sent back to them.
+      const events = await tx.quantityEvent.findMany({
+            where: admin
+              ? {}
+              : manufacturer
+                ? { ownerId: user.id, type: "MFG_RETURN" }
+                : { ownerId: user.id },
             include: { items: true },
             orderBy: { createdAt: "desc" },
           });
@@ -73,8 +77,10 @@ export async function workspace(user: Actor) {
         where: { id: 1 },
         select: { name: true, minStock: true, dateFormat: true },
       });
+      const sales = await salesWorkspace(tx, user);
       return {
         user: { id: user.id, email: user.email || "", role: user.role },
+        ...sales,
         central: CENTRAL,
         products: products.map((p) => {
           const hasCentralStock = "stock" in p;

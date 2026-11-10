@@ -52,6 +52,7 @@ model Product {
   returnItems ReturnItem[]
   movements StockMovement[]
   batches Batch[]
+  orderItems SalesOrderItem[]
   @@index([name])
 }
 model Supplier {
@@ -319,4 +320,50 @@ model SaleItemBatch {
   returned Decimal @default(0) @db.Decimal(18,3)
   @@id([saleItemId, batchId])
   @@index([batchId])
+}
+
+// Sales staff. Order IDs start with the member's code, e.g. TRL1023.
+model TeamMember {
+  id String @id @default(cuid())
+  name String @db.VarChar(191)
+  code String @unique @db.VarChar(16)
+  phone String? @db.VarChar(64)
+  active Boolean @default(true)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  orders SalesOrder[]
+}
+
+// Scan-based sales orders. Items are editable; every change adjusts stock.
+model SalesOrder {
+  id String @id @default(cuid())
+  orderNo String @unique @db.VarChar(64)
+  teamMemberId String
+  teamMember TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Restrict)
+  ownerId String @db.VarChar(191)
+  createdById String @db.VarChar(191)
+  // PLACED, DISPATCHED, DELIVERED keep stock out; RETURNED, CANCELLED put it back; DAMAGED puts it in damaged stock.
+  status String @default("PLACED") @db.VarChar(32)
+  statusNote String? @db.Text
+  statusAt DateTime? @db.DateTime(3)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  updatedAt DateTime @updatedAt @db.DateTime(3)
+  items SalesOrderItem[]
+  @@index([status])
+  @@index([createdAt])
+  @@index([teamMemberId])
+  @@index([ownerId, updatedAt])
+  @@index([updatedAt])
+}
+
+model SalesOrderItem {
+  id String @id @default(cuid())
+  orderId String
+  order SalesOrder @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  productId String
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity Decimal @db.Decimal(18,3)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  updatedAt DateTime @updatedAt @db.DateTime(3)
+  @@unique([orderId, productId])
+  @@index([productId])
 }

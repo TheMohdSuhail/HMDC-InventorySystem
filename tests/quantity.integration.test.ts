@@ -213,6 +213,52 @@ describe.skipIf(!enabled)(
         ).quantity.toString(),
       ).toBe("12");
     });
+    it("sends sellable and damaged stock back to a manufacturer and shows it only to them", async () => {
+      const { branch, manufacturer, p } = await fixture();
+      const buckets = async () => {
+        const row = await db.product.findUniqueOrThrow({ where: { id: p.id } });
+        return [row.stock.toString(), row.damaged.toString()];
+      };
+      await execute(op("DAMAGED", [row(p.id, "4")]), admin);
+      expect(await buckets()).toEqual(["16", "4"]);
+      await execute(
+        op("MFG_RETURN", [row(p.id, "3")], {
+          ownerId: manufacturer.id,
+          condition: "DAMAGED",
+        }),
+        admin,
+      );
+      await execute(
+        op("MFG_RETURN", [row(p.id, "6")], { ownerId: manufacturer.id }),
+        admin,
+      );
+      expect(await buckets()).toEqual(["10", "1"]);
+      await expect(
+        execute(
+          op("MFG_RETURN", [row(p.id, "2")], {
+            ownerId: manufacturer.id,
+            condition: "DAMAGED",
+          }),
+          admin,
+        ),
+      ).rejects.toThrow("Insufficient");
+      await expect(
+        execute(op("MFG_RETURN", [row(p.id, "1")], { ownerId: branch.id }), admin),
+      ).rejects.toThrow("manufacturer");
+      await expect(
+        execute(
+          op("MFG_RETURN", [row(p.id, "1")], { ownerId: manufacturer.id }),
+          manufacturer,
+        ),
+      ).rejects.toThrow("role");
+      const scoped = await workspace(manufacturer);
+      expect(scoped.events.map((e) => [e.type, e.condition])).toEqual([
+        ["MFG_RETURN", "SELLABLE"],
+        ["MFG_RETURN", "DAMAGED"],
+      ]);
+      expect(scoped.balances).toEqual([]);
+      expect((await workspace(branch)).events).toEqual([]);
+    });
     it("rolls back whole batches and prevents concurrent negative balances", async () => {
       const { branch, p, other } = await fixture();
       const input = op("ASSIGN", [row(p.id, "3"), row(other.id, "51")], {
